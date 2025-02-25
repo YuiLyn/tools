@@ -1,10 +1,12 @@
 body {
-    font-family: Arial, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh; /* 確保頁面高度填滿視窗 */
+}
+html, body {
+    height: 100%; /* 確保頁面高度填滿視窗 */
     margin: 0;
+    font-family: Arial, sans-serif;
     background-color: #f0f0f0;
 }
 
