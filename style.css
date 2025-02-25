@@ -45,3 +45,22 @@ button:hover {
     margin-top: 20px;
     font-size: 18px;
 }
+
+.tool-list {
+    list-style: none;
+    padding: 0;
+}
+
+.tool-list li {
+    margin: 10px 0;
+}
+
+.tool-list a {
+    text-decoration: none;
+    color: #4CAF50;
+    font-size: 18px;
+}
+
+.tool-list a:hover {
+    color: #45a049;
+}
