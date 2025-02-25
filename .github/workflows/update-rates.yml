@@ -1,0 +1,55 @@
+name: Update Exchange Rates
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天 UTC 時間 0:00 運行（約為太平洋時間下午 4:00）
+  workflow_dispatch: # 允許手動觸發
+
+jobs:
+  update-rates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install axios
+
+      - name: Fetch exchange rates
+        run: |
+          node -e "
+            const axios = require('axios');
+            axios.get('https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_UtFhFaaHCpPgH76NII3VyUI9H9ccyhrJYzqeapGG')
+              .then(response => {
+                const rates = response.data.data;
+                const formattedRates = {
+                  rates: {
+                    USD: { EUR: rates.EUR, GBP: rates.GBP, JPY: rates.JPY, CNY: rates.CNY, HKD: rates.HKD, TWD: rates.TWD },
+                    EUR: { USD: 1 / rates.EUR, GBP: rates.GBP / rates.EUR, JPY: rates.JPY / rates.EUR, CNY: rates.CNY / rates.EUR, HKD: rates.HKD / rates.EUR, TWD: rates.TWD / rates.EUR },
+                    GBP: { USD: 1 / rates.GBP, EUR: rates.EUR / rates.GBP, JPY: rates.JPY / rates.GBP, CNY: rates.CNY / rates.GBP, HKD: rates.HKD / rates.GBP, TWD: rates.TWD / rates.GBP },
+                    JPY: { USD: 1 / rates.JPY, EUR: rates.EUR / rates.JPY, GBP: rates.GBP / rates.JPY, CNY: rates.CNY / rates.JPY, HKD: rates.HKD / rates.JPY, TWD: rates.TWD / rates.JPY },
+                    CNY: { USD: 1 / rates.CNY, EUR: rates.EUR / rates.CNY, GBP: rates.GBP / rates.CNY, JPY: rates.JPY / rates.CNY, HKD: rates.HKD / rates.CNY, TWD: rates.TWD / rates.CNY },
+                    HKD: { USD: 1 / rates.HKD, EUR: rates.EUR / rates.HKD, GBP: rates.GBP / rates.HKD, JPY: rates.JPY / rates.HKD, CNY: rates.CNY / rates.HKD, TWD: rates.TWD / rates.HKD },
+                    TWD: { USD: 1 / rates.TWD, EUR: rates.EUR / rates.TWD, GBP: rates.GBP / rates.TWD, JPY: rates.JPY / rates.TWD, CNY: rates.CNY / rates.TWD, HKD: rates.HKD / rates.TWD }
+                  },
+                  lastUpdated: new Date().toISOString().split('T')[0]
+                };
+                require('fs').writeFileSync('exchange-rates.json', JSON.stringify(formattedRates, null, 2));
+              })
+              .catch(error => console.error('Error fetching rates:', error));
+          "
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'Your Name'
+          git config --global user.email 'your.email@example.com'
+          git add exchange-rates.json
+          git commit -m "Update exchange rates on $(date +'%Y-%m-%d')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
