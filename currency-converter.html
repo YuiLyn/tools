@@ -42,41 +42,30 @@
         <p><a href="index.html">返回工具主頁</a></p>
     </div>
     <script>
-        async function convertCurrency() {
+        function convertCurrency() {
             const amount = parseFloat(document.getElementById('amount').value);
             const fromCurrency = document.getElementById('fromCurrency').value;
             const toCurrency = document.getElementById('toCurrency').value;
             const resultDiv = document.getElementById('result');
-        
+
             if (isNaN(amount) || amount <= 0) {
                 resultDiv.innerHTML = "請輸入有效的正數金額！";
                 return;
             }
-        
-            try {
-                const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?access_key=YOUR_API_KEY`);
-                const data = await response.json();
-        
-                if (!data.success) {
-                    resultDiv.innerHTML = "無法獲取匯率數據，請稍後重試！";
-                    return;
-                }
-        
-                const rates = data.rates;
-                const usdRate = rates[fromCurrency] || 1; // 從貨幣相對於 USD 的匯率
-                const targetRate = rates[toCurrency] || 1; // 目標貨幣相對於 USD 的匯率
-        
-                if (!usdRate || !targetRate) {
-                    resultDiv.innerHTML = "不支持的貨幣對，請選擇其他貨幣！";
-                    return;
-                }
-        
-                const convertedAmount = (amount * usdRate) / targetRate;
-                resultDiv.innerHTML = `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
-            } catch (error) {
-                resultDiv.innerHTML = "發生錯誤，請檢查網路或稍後重試！";
-                console.error('Error:', error);
-            }
+
+            // 固定匯率（2025-02-24 的大約值，需定期更新）
+            const rates = {
+                USD: { EUR: 0.92, GBP: 0.79, JPY: 149.50, CNY: 7.20, HKD: 7.80, TWD: 31.50 },
+                EUR: { USD: 1.09, GBP: 0.86, JPY: 162.50, CNY: 7.83, HKD: 8.49, TWD: 34.29 },
+                GBP: { USD: 1.27, EUR: 1.16, JPY: 189.87, CNY: 9.14, HKD: 9.90, TWD: 40.00 },
+                JPY: { USD: 0.0067, EUR: 0.0062, GBP: 0.0053, CNY: 0.048, HKD: 0.052, TWD: 0.21 },
+                CNY: { USD: 0.139, EUR: 0.128, GBP: 0.109, JPY: 20.83, HKD: 1.08, TWD: 4.38 },
+                HKD: { USD: 0.128, EUR: 0.118, GBP: 0.101, JPY: 19.23, CNY: 0.93, TWD: 4.04 },
+                TWD: { USD: 0.0317, EUR: 0.0292, GBP: 0.0250, JPY: 4.76, CNY: 0.228, HKD: 0.247 }
+            };
+
+            const convertedAmount = amount * (rates[fromCurrency][toCurrency] || 1);
+            resultDiv.innerHTML = `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
         }
     </script>
 </body>
