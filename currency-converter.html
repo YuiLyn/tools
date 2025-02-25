@@ -21,6 +21,8 @@
                 <option value="GBP">英鎊 (GBP)</option>
                 <option value="JPY">日元 (JPY)</option>
                 <option value="CNY">人民幣 (CNY)</option>
+                <option value="HKD">港幣 (HKD)</option>
+                <option value="TWD">新台幣 (TWD)</option>
             </select>
         </div>
         <div class="input-group">
@@ -31,6 +33,8 @@
                 <option value="GBP">英鎊 (GBP)</option>
                 <option value="JPY">日元 (JPY)</option>
                 <option value="CNY">人民幣 (CNY)</option>
+                <option value="HKD">港幣 (HKD)</option>
+                <option value="TWD">新台幣 (TWD)</option>
             </select>
         </div>
         <button onclick="convertCurrency()">轉換</button>
@@ -50,8 +54,7 @@
             }
 
             try {
-                // 修正 API 請求，根據文檔使用基礎 URL
-                const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?access_key=6091e337d46bb84007572ad5980d5fb74`);
+                const response = await fetch(`https://api.exchangeratesapi.io/v1/latest?access_key=6091e337d46bb4807572ad5980d5fb74`);
                 const data = await response.json();
 
                 if (!data.success) {
@@ -60,10 +63,9 @@
                 }
 
                 const rates = data.rates;
-                const usdRate = rates[fromCurrency] || 1; // 從貨幣相對於 USD 的匯率
-                const targetRate = rates[toCurrency] || 1; // 目標貨幣相對於 USD 的匯率
+                const usdRate = rates[fromCurrency] || 1;
+                const targetRate = rates[toCurrency] || 1;
 
-                // 計算轉換
                 const convertedAmount = (amount * usdRate) / targetRate;
                 resultDiv.innerHTML = `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
             } catch (error) {
