@@ -38,10 +38,21 @@
             </select>
         </div>
         <button onclick="convertCurrency()">轉換</button>
+        <button onclick="updateExchangeRates()">更新匯率</button>
         <div class="result" id="result"></div>
         <p><a href="index.html">返回工具主頁</a></p>
     </div>
     <script>
+        let rates = {
+            USD: { EUR: 0.92, GBP: 0.79, JPY: 149.50, CNY: 7.20, HKD: 7.80, TWD: 31.50 },
+            EUR: { USD: 1.09, GBP: 0.86, JPY: 162.50, CNY: 7.83, HKD: 8.49, TWD: 34.29 },
+            GBP: { USD: 1.27, EUR: 1.16, JPY: 189.87, CNY: 9.14, HKD: 9.90, TWD: 40.00 },
+            JPY: { USD: 0.0067, EUR: 0.0062, GBP: 0.0053, CNY: 0.048, HKD: 0.052, TWD: 0.21 },
+            CNY: { USD: 0.139, EUR: 0.128, GBP: 0.109, JPY: 20.83, HKD: 1.08, TWD: 4.38 },
+            HKD: { USD: 0.128, EUR: 0.118, GBP: 0.101, JPY: 19.23, CNY: 0.93, TWD: 4.04 },
+            TWD: { USD: 0.0317, EUR: 0.0292, GBP: 0.0250, JPY: 4.76, CNY: 0.228, HKD: 0.247 }
+        };
+
         function convertCurrency() {
             const amount = parseFloat(document.getElementById('amount').value);
             const fromCurrency = document.getElementById('fromCurrency').value;
@@ -53,19 +64,26 @@
                 return;
             }
 
-            // 固定匯率（2025-02-24 的大約值，需定期更新）
-            const rates = {
-                USD: { EUR: 0.92, GBP: 0.79, JPY: 149.50, CNY: 7.20, HKD: 7.80, TWD: 31.50 },
-                EUR: { USD: 1.09, GBP: 0.86, JPY: 162.50, CNY: 7.83, HKD: 8.49, TWD: 34.29 },
-                GBP: { USD: 1.27, EUR: 1.16, JPY: 189.87, CNY: 9.14, HKD: 9.90, TWD: 40.00 },
-                JPY: { USD: 0.0067, EUR: 0.0062, GBP: 0.0053, CNY: 0.048, HKD: 0.052, TWD: 0.21 },
-                CNY: { USD: 0.139, EUR: 0.128, GBP: 0.109, JPY: 20.83, HKD: 1.08, TWD: 4.38 },
-                HKD: { USD: 0.128, EUR: 0.118, GBP: 0.101, JPY: 19.23, CNY: 0.93, TWD: 4.04 },
-                TWD: { USD: 0.0317, EUR: 0.0292, GBP: 0.0250, JPY: 4.76, CNY: 0.228, HKD: 0.247 }
-            };
-
             const convertedAmount = amount * (rates[fromCurrency][toCurrency] || 1);
             resultDiv.innerHTML = `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
+        }
+
+        async function updateExchangeRates() {
+            const resultDiv = document.getElementById('result');
+            try {
+                const response = await fetch('exchange-rates.json');
+                const data = await response.json();
+
+                if (data.rates) {
+                    rates = data.rates;
+                    resultDiv.innerHTML = "匯率已成功更新！最後更新日期：" + (data.lastUpdated || "未知");
+                } else {
+                    resultDiv.innerHTML = "匯率數據格式錯誤，請檢查 exchange-rates.json 檔案！";
+                }
+            } catch (error) {
+                resultDiv.innerHTML = "更新失敗，請確認 exchange-rates.json 檔案是否存在並正確格式化！";
+                console.error('Error:', error);
+            }
         }
     </script>
 </body>
