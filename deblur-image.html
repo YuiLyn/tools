@@ -5,6 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>修復模糊圖片工具</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .comparison-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .comparison-image {
+            width: 48%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .comparison-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -48,9 +74,26 @@
                 img.onload = function() {
                     document.getElementById('result').innerHTML = "圖片已加載，準備修復！";
                     document.getElementById('deblurButton').disabled = false;
+                    showPreview(); // 顯示初始預覽（修復前）
                 };
             };
             reader.readAsDataURL(file);
+        }
+
+        function showPreview() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="comparison-container">
+                    <div class="comparison-image">
+                        <img src="${img.src}" alt="Before">
+                        <div class="label">Before</div>
+                    </div>
+                    <div class="comparison-image" id="afterPreview">
+                        <img src="${img.src}" alt="After" style="filter: blur(5px);">
+                        <div class="label">After</div>
+                    </div>
+                </div>
+            `;
         }
 
         function deblurImage() {
@@ -98,13 +141,33 @@
             }
 
             ctx.putImageData(imageData, 0, 0);
-            const deblurredImg = document.createElement('img');
-            deblurredImg.src = canvas.toDataURL();
-            deblurredImg.style.maxWidth = '100%';
-            deblurredImg.style.height = 'auto';
 
-            resultDiv.innerHTML = "";
-            resultDiv.appendChild(deblurredImg);
+            // 更新預覽（修復後）
+            const afterPreview = document.getElementById('afterPreview');
+            const deblurredImg = new Image();
+            deblurredImg.src = canvas.toDataURL();
+            deblurredImg.onload = function() {
+                afterPreview.innerHTML = '';
+                const imgElement = document.createElement('img');
+                imgElement.src = deblurredImg.src;
+                imgElement.style.width = '100%';
+                imgElement.style.height = 'auto';
+                afterPreview.appendChild(imgElement);
+                afterPreview.querySelector('.label').textContent = 'After';
+            };
+
+            resultDiv.innerHTML = `
+                <div class="comparison-container">
+                    <div class="comparison-image">
+                        <img src="${img.src}" alt="Before">
+                        <div class="label">Before</div>
+                    </div>
+                    <div class="comparison-image" id="afterPreview">
+                        <img src="${deblurredImg.src}" alt="After">
+                        <div class="label">After</div>
+                    </div>
+                </div>
+            `;
             resultDiv.innerHTML += "<p>修復完成！選擇輸出格式並下載修復後的圖片。</p>";
             document.getElementById('downloadOptions').style.display = 'block';
             document.getElementById('downloadButton').style.display = 'block';
@@ -133,6 +196,9 @@
         // 實時更新銳化強度顯示
         document.getElementById('sharpenLevel').addEventListener('input', function() {
             document.getElementById('sharpenValue').textContent = this.value;
+            if (img) {
+                deblurImage(); // 實時更新預覽
+            }
         });
     </script>
 </body>
