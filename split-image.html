@@ -75,3 +75,54 @@
             gridContainer.style.margin = '20px auto';
 
             // 按網格分割圖片
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = cellWidth;
+                    canvas.height = cellHeight;
+
+                    // 裁剪並繪製圖片
+                    ctx.drawImage(img, j * cellWidth, i * cellHeight, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
+
+                    // 將 canvas 轉為圖片數據並存儲
+                    const dataUrl = canvas.toDataURL();
+                    splitImages.push({ data: dataUrl, name: `grid_${i}_${j}.png` });
+
+                    // 創建並顯示圖片
+                    const imgElement = document.createElement('img');
+                    imgElement.src = dataUrl;
+                    imgElement.style.width = '100%';
+                    imgElement.style.height = 'auto';
+                    gridContainer.appendChild(imgElement);
+                }
+            }
+
+            resultDiv.appendChild(gridContainer);
+            resultDiv.innerHTML += "<p>點擊右鍵圖片可單獨保存，或者使用下方按鈕一鍵保存所有圖片。</p>";
+            document.getElementById('downloadButton').style.display = 'block'; // 顯示下載按鈕
+        }
+
+        function downloadSplitImages() {
+            if (splitImages.length === 0) {
+                alert("請先分割圖片！");
+                return;
+            }
+
+            const zip = new JSZip();
+            splitImages.forEach((img, index) => {
+                // 從 data URL 提取圖片數據（去除前綴）
+                const base64Data = img.data.split(',')[1];
+                zip.file(img.name, base64Data, { base64: true });
+            });
+
+            // 生成 ZIP 檔案並下載
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    saveAs(content, "split_images.zip");
+                    alert("圖片已打包為 ZIP 檔案並下載！");
+                });
+        }
+    </script>
+</body>
+</html>
