@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>圖片分割工具</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 引入 JSZip 和 FileSaver.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -21,11 +24,13 @@
             </select>
         </div>
         <button onclick="splitImage()">分割圖片</button>
+        <button onclick="downloadSplitImages()" style="display: none;" id="downloadButton">一鍵保存所有圖片</button>
         <div class="result" id="result"></div>
         <p><a href="index.html">返回工具主頁</a></p>
     </div>
     <script>
         let img = null;
+        let splitImages = []; // 存儲分割後的圖片數據
 
         function loadImage() {
             const file = document.getElementById('imageUpload').files[0];
@@ -58,6 +63,7 @@
             const cellHeight = height / gridSize;
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = "";
+            splitImages = []; // 重置分割後的圖片數據
 
             // 創建網格容器
             const gridContainer = document.createElement('div');
@@ -69,28 +75,3 @@
             gridContainer.style.margin = '20px auto';
 
             // 按網格分割圖片
-            for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < gridSize; j++) {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = cellWidth;
-                    canvas.height = cellHeight;
-
-                    // 裁剪並繪製圖片
-                    ctx.drawImage(img, j * cellWidth, i * cellHeight, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
-
-                    // 將 canvas 轉為圖片並顯示
-                    const imgElement = document.createElement('img');
-                    imgElement.src = canvas.toDataURL();
-                    imgElement.style.width = '100%';
-                    imgElement.style.height = 'auto';
-                    gridContainer.appendChild(imgElement);
-                }
-            }
-
-            resultDiv.appendChild(gridContainer);
-            resultDiv.innerHTML += "<p>點擊右鍵圖片可保存分割後的圖片到本地。</p>";
-        }
-    </script>
-</body>
-</html>
