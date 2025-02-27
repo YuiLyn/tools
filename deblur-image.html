@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復模糊圖片工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>修復模糊圖片工具</h1>
+        <div class="input-group">
+            <label for="imageUpload">上傳模糊圖片:</label>
+            <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
+        </div>
+        <div class="input-group">
+            <label for="sharpenLevel">銳化強度 (0-100):</label>
+            <input type="range" id="sharpenLevel" min="0" max="100" value="50">
+            <span id="sharpenValue">50</span>
+        </div>
+        <button onclick="deblurImage()" disabled id="deblurButton">修復圖片</button>
+        <div class="input-group" style="display: none;" id="downloadOptions">
+            <label for="imageFormat">選擇輸出格式:</label>
+            <select id="imageFormat">
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+            </select>
+        </div>
+        <button onclick="downloadDeblurredImage()" style="display: none;" id="downloadButton">下載修復後的圖片</button>
+        <div class="result" id="result"></div>
+        <p><a href="index.html">返回工具主頁</a></p>
+    </div>
+    <script>
+        let img = null;
+        let canvas = null;
+
+        function loadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) {
+                alert("請選擇一個圖片檔案！");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    document.getElementById('result').innerHTML = "圖片已加載，準備修復！";
+                    document.getElementById('deblurButton').disabled = false;
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function deblurImage() {
+            if (!img) {
+                alert("請先上傳圖片！");
+                return;
+            }
+
+            const sharpenLevel = parseInt(document.getElementById('sharpenLevel').value) / 100;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = "正在修復圖片，請稍候...";
+
+            // 創建 canvas 來處理圖片
+            canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            // 繪製原始圖片到 canvas
+            ctx.drawImage(img, 0, 0);
+
+            // 簡單的銳化濾波器（使用卷積矩陣）
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const sharpenMatrix = [
+                [0, -1, 0],
+                [-1, 5, -1],
+                [0, -1, 0]
+            ];
+
+            for (let y = 1; y < canvas.height - 1; y++) {
+                for (let x = 1; x < canvas.width - 1; x++) {
+                    for (let c = 0; c < 3; c++) { // RGB 通道
+                        let sum = 0;
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const pixelIndex = ((y + ky) * canvas.width + (x + kx)) * 4 + c;
+                                sum += data[pixelIndex] * sharpenMatrix[ky + 1][kx + 1];
+                            }
+                        }
+                        const currentIndex = (y * canvas.width + x) * 4 + c;
+                        data[currentIndex] = Math.min(255, Math.max(0, sum * sharpenLevel));
+                    }
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            const deblurredImg = document.createElement('img');
+            deblurredImg.src = canvas.toDataURL();
+            deblurredImg.style.maxWidth = '100%';
+            deblurredImg.style.height = 'auto';
+
+            resultDiv.innerHTML = "";
+            resultDiv.appendChild(deblurredImg);
+            resultDiv.innerHTML += "<p>修復完成！選擇輸出格式並下載修復後的圖片。</p>";
+            document.getElementById('downloadOptions').style.display = 'block';
+            document.getElementById('downloadButton').style.display = 'block';
+        }
+
+        function downloadDeblurredImage() {
+            if (!canvas) {
+                alert("請先修復圖片！");
+                return;
+            }
+
+            const format = document.getElementById('imageFormat').value;
+            let dataURL;
+            if (format === 'png') {
+                dataURL = canvas.toDataURL('image/png');
+            } else if (format === 'jpg') {
+                dataURL = canvas.toDataURL('image/jpeg', 0.95); // JPG 質量設為 95%
+            }
+
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = `deblurred_image.${format}`;
+            link.click();
+        }
+
+        // 實時更新銳化強度顯示
+        document.getElementById('sharpenLevel').addEventListener('input', function() {
+            document.getElementById('sharpenValue').textContent = this.value;
+        });
+    </script>
+</body>
+</html>
