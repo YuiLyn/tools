@@ -79,7 +79,6 @@
             <label for="imageUpload">上傳模糊圖片:</label>
             <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
         </div>
-        <button onclick="deblurImage()" disabled id="deblurButton">修復圖片</button>
         <div class="input-group" style="display: none;" id="downloadOptions">
             <label for="imageFormat">選擇輸出格式:</label>
             <select id="imageFormat">
@@ -94,7 +93,7 @@
 
     <!-- 放大模態窗口 -->
     <div class="modal" id="modal">
-        <span class="close" onclick="closeModal()">&times;</span>
+        <span class="close" onclick="closeModal()">×</span>
         <div class="modal-content" id="modalContent"></div>
     </div>
 
@@ -116,27 +115,13 @@
                 img = new Image();
                 img.src = e.target.result;
                 img.onload = function() {
-                    document.getElementById('result').innerHTML = "圖片已加載，準備修復！";
-                    document.getElementById('deblurButton').disabled = false;
+                    document.getElementById('result').innerHTML = "圖片已加載，立即查看修復效果！";
                     originalImgSrc = img.src; // 儲存原始圖片數據
-                    showPreview(); // 顯示初始預覽（修復前）
+                    deblurredImgSrc = ''; // 重置修復後的圖片數據
+                    deblurImage(); // 立即修復並顯示滑塊
                 };
             };
             reader.readAsDataURL(file);
-        }
-
-        function showPreview() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `
-                <div class="comparison-container">
-                    <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
-                    <img class="comparison-image" id="deblurredImg" src="${originalImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; filter: blur(5px); clip-path: inset(0 50% 0 0);">
-                    <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
-                </div>
-            `;
-            updateSliderPosition(); // 初始化滑塊位置
-            document.getElementById('originalImg').addEventListener('click', showModal);
-            document.getElementById('deblurredImg').addEventListener('click', showModal);
         }
 
         let isDragging = false;
@@ -177,7 +162,6 @@
 
             const sharpenLevel = 1; // 固定為 100% 銳化強度
             const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = "正在修復圖片，請稍候...";
 
             // 創建 canvas 來處理圖片
             canvas = document.createElement('canvas');
@@ -231,24 +215,20 @@
             ctx.putImageData(imageData, 0, 0);
             deblurredImgSrc = canvas.toDataURL(); // 儲存修復後的圖片數據
 
-            // 更新預覽（修復後）
-            const deblurredImg = document.getElementById('deblurredImg');
-            deblurredImg.src = deblurredImgSrc;
-            deblurredImg.style.filter = 'none'; // 移除模糊效果
-            deblurredImg.style.clipPath = `inset(0 ${sliderPosition}% 0 0)`;
-
+            // 顯示滑塊對比
             resultDiv.innerHTML = `
                 <div class="comparison-container">
                     <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
-                    <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; clip-path: inset(0 ${sliderPosition}% 0 0);">
+                    <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; clip-path: inset(0 50% 0 0);">
                     <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
                 </div>
             `;
-            resultDiv.innerHTML += "<p>修復完成！拖動滑塊查看對比，選擇輸出格式並下載修復後的圖片。</p>";
+            resultDiv.innerHTML += "<p>拖動滑塊查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>";
             document.getElementById('downloadOptions').style.display = 'block';
             document.getElementById('downloadButton').style.display = 'block';
             document.getElementById('originalImg').addEventListener('click', showModal);
             document.getElementById('deblurredImg').addEventListener('click', showModal);
+            updateSliderPosition(); // 初始化滑塊位置
         }
 
         function downloadDeblurredImage() {
