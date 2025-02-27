@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片分割工具</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>圖片分割工具</h1>
+        <div class="input-group">
+            <label for="imageUpload">上傳圖片:</label>
+            <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
+        </div>
+        <div class="input-group">
+            <label for="gridSize">選擇網格大小:</label>
+            <select id="gridSize">
+                <option value="2">2x2</option>
+                <option value="3">3x3</option>
+            </select>
+        </div>
+        <button onclick="splitImage()">分割圖片</button>
+        <div class="result" id="result"></div>
+        <p><a href="index.html">返回工具主頁</a></p>
+    </div>
+    <script>
+        let img = null;
+
+        function loadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) {
+                alert("請選擇一個圖片檔案！");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    document.getElementById('result').innerHTML = "圖片已加載，準備分割！";
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function splitImage() {
+            if (!img) {
+                alert("請先上傳圖片！");
+                return;
+            }
+
+            const gridSize = parseInt(document.getElementById('gridSize').value);
+            const width = img.width;
+            const height = img.height;
+            const cellWidth = width / gridSize;
+            const cellHeight = height / gridSize;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = "";
+
+            // 創建網格容器
+            const gridContainer = document.createElement('div');
+            gridContainer.style.display = 'grid';
+            gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            gridContainer.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+            gridContainer.style.gap = '5px';
+            gridContainer.style.maxWidth = `${width}px`;
+            gridContainer.style.margin = '20px auto';
+
+            // 按網格分割圖片
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = cellWidth;
+                    canvas.height = cellHeight;
+
+                    // 裁剪並繪製圖片
+                    ctx.drawImage(img, j * cellWidth, i * cellHeight, cellWidth, cellHeight, 0, 0, cellWidth, cellHeight);
+
+                    // 將 canvas 轉為圖片並顯示
+                    const imgElement = document.createElement('img');
+                    imgElement.src = canvas.toDataURL();
+                    imgElement.style.width = '100%';
+                    imgElement.style.height = 'auto';
+                    gridContainer.appendChild(imgElement);
+                }
+            }
+
+            resultDiv.appendChild(gridContainer);
+            resultDiv.innerHTML += "<p>點擊右鍵圖片可保存分割後的圖片到本地。</p>";
+        }
+    </script>
+</body>
+</html>
