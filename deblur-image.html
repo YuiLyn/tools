@@ -72,7 +72,6 @@
                 img = new Image();
                 img.src = e.target.result;
                 img.onload = function() {
-                    document.getElementById('result').innerHTML = "圖片已加載，準備修復！";
                     document.getElementById('deblurButton').disabled = false;
                     showPreview(); // 顯示初始預覽（修復前）
                 };
