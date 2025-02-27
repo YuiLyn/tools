@@ -7,28 +7,68 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .comparison-container {
-            display: flex;
-            justify-content: space-between;
+            position: relative;
             width: 100%;
             max-width: 800px;
             margin: 20px auto;
-        }
-        .comparison-image {
-            width: 48%;
-            border: 2px solid #ccc;
-            border-radius: 8px;
             overflow: hidden;
         }
-        .comparison-image img {
+        .comparison-image {
             width: 100%;
             height: auto;
             display: block;
         }
-        .label {
-            text-align: center;
-            font-weight: bold;
-            margin-top: 5px;
-            color: #333;
+        .slider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background-color: #000;
+            cursor: ew-resize;
+            z-index: 10;
+        }
+        .slider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -10px;
+            width: 24px;
+            height: 24px;
+            background-color: #fff;
+            border: 2px solid #000;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            cursor: ew-resize;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .modal-content img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -38,11 +78,6 @@
         <div class="input-group">
             <label for="imageUpload">上傳模糊圖片:</label>
             <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
-        </div>
-        <div class="input-group">
-            <label for="sharpenLevel">銳化強度 (0-100):</label>
-            <input type="range" id="sharpenLevel" min="0" max="100" value="50">
-            <span id="sharpenValue">50</span>
         </div>
         <button onclick="deblurImage()" disabled id="deblurButton">修復圖片</button>
         <div class="input-group" style="display: none;" id="downloadOptions">
@@ -56,9 +91,18 @@
         <div class="result" id="result"></div>
         <p><a href="index.html">返回工具主頁</a></p>
     </div>
+
+    <!-- 放大模態窗口 -->
+    <div class="modal" id="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <div class="modal-content" id="modalContent"></div>
+    </div>
+
     <script>
         let img = null;
         let canvas = null;
+        let originalImgSrc = '';
+        let deblurredImgSrc = '';
 
         function loadImage() {
             const file = document.getElementById('imageUpload').files[0];
@@ -74,6 +118,7 @@
                 img.onload = function() {
                     document.getElementById('result').innerHTML = "圖片已加載，準備修復！";
                     document.getElementById('deblurButton').disabled = false;
+                    originalImgSrc = img.src; // 儲存原始圖片數據
                     showPreview(); // 顯示初始預覽（修復前）
                 };
             };
@@ -84,16 +129,44 @@
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = `
                 <div class="comparison-container">
-                    <div class="comparison-image">
-                        <img src="${img.src}" alt="Before">
-                        <div class="label">Before</div>
-                    </div>
-                    <div class="comparison-image" id="afterPreview">
-                        <img src="${img.src}" alt="After" style="filter: blur(5px);">
-                        <div class="label">After</div>
-                    </div>
+                    <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
+                    <img class="comparison-image" id="deblurredImg" src="${originalImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; filter: blur(5px); clip-path: inset(0 50% 0 0);">
+                    <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
                 </div>
             `;
+            updateSliderPosition(); // 初始化滑塊位置
+            document.getElementById('originalImg').addEventListener('click', showModal);
+            document.getElementById('deblurredImg').addEventListener('click', showModal);
+        }
+
+        let isDragging = false;
+        let sliderPosition = 50; // 初始滑塊位置（50%）
+
+        function startDrag(e) {
+            isDragging = true;
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            const container = document.querySelector('.comparison-container');
+            const rect = container.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            sliderPosition = (x / rect.width) * 100;
+            updateSliderPosition();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+        }
+
+        function updateSliderPosition() {
+            const slider = document.getElementById('slider');
+            const originalImg = document.getElementById('originalImg');
+            const deblurredImg = document.getElementById('deblurredImg');
+            sliderPosition = Math.max(0, Math.min(100, sliderPosition)); // 限制在 0-100%
+            slider.style.left = `${sliderPosition}%`;
+            originalImg.style.clipPath = `inset(0 ${100 - sliderPosition}% 0 0)`;
+            deblurredImg.style.clipPath = `inset(0 ${sliderPosition}% 0 0)`;
         }
 
         function deblurImage() {
@@ -102,7 +175,7 @@
                 return;
             }
 
-            const sharpenLevel = parseInt(document.getElementById('sharpenLevel').value) / 100;
+            const sharpenLevel = 1; // 固定為 100% 銳化強度
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = "正在修復圖片，請稍候...";
 
@@ -115,12 +188,12 @@
             // 繪製原始圖片到 canvas
             ctx.drawImage(img, 0, 0);
 
-            // 優化的銳化濾波器（調整卷積矩陣和亮度處理）
+            // 優化的銳化濾波器（使用卷積矩陣）
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             const sharpenMatrix = [
                 [-1, -1, -1],
-                [-1, 9, -1],  // 將中心值從 5 調整為 9，增強邊緣並減少灰暗
+                [-1, 9, -1],  // 使用較強的中心值以保持亮度
                 [-1, -1, -1]
             ];
 
@@ -148,44 +221,34 @@
                         const originalBright = originalBrightness[(y * canvas.width + x)];
                         let newValue = sum * sharpenLevel;
                         newValue = Math.min(255, Math.max(0, newValue));
-                        // 根據原始亮度調整，減少灰暗
-                        newValue = newValue * (1 + (originalBright / 255) * 0.3); // 增加亮度補償
+                        // 增加亮度補償，確保高銳化強度時亮度正常
+                        newValue = newValue * (1 + (originalBright / 255) * 0.5); // 增加亮度補償
                         data[currentIndex] = Math.min(255, Math.max(0, newValue));
                     }
                 }
             }
 
             ctx.putImageData(imageData, 0, 0);
+            deblurredImgSrc = canvas.toDataURL(); // 儲存修復後的圖片數據
 
             // 更新預覽（修復後）
-            const afterPreview = document.getElementById('afterPreview');
-            const deblurredImg = new Image();
-            deblurredImg.src = canvas.toDataURL();
-            deblurredImg.onload = function() {
-                afterPreview.innerHTML = '';
-                const imgElement = document.createElement('img');
-                imgElement.src = deblurredImg.src;
-                imgElement.style.width = '100%';
-                imgElement.style.height = 'auto';
-                afterPreview.appendChild(imgElement);
-                afterPreview.querySelector('.label').textContent = 'After';
-            };
+            const deblurredImg = document.getElementById('deblurredImg');
+            deblurredImg.src = deblurredImgSrc;
+            deblurredImg.style.filter = 'none'; // 移除模糊效果
+            deblurredImg.style.clipPath = `inset(0 ${sliderPosition}% 0 0)`;
 
             resultDiv.innerHTML = `
                 <div class="comparison-container">
-                    <div class="comparison-image">
-                        <img src="${img.src}" alt="Before">
-                        <div class="label">Before</div>
-                    </div>
-                    <div class="comparison-image" id="afterPreview">
-                        <img src="${deblurredImg.src}" alt="After">
-                        <div class="label">After</div>
-                    </div>
+                    <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
+                    <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; clip-path: inset(0 ${sliderPosition}% 0 0);">
+                    <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
                 </div>
             `;
-            resultDiv.innerHTML += "<p>修復完成！選擇輸出格式並下載修復後的圖片。</p>";
+            resultDiv.innerHTML += "<p>修復完成！拖動滑塊查看對比，選擇輸出格式並下載修復後的圖片。</p>";
             document.getElementById('downloadOptions').style.display = 'block';
             document.getElementById('downloadButton').style.display = 'block';
+            document.getElementById('originalImg').addEventListener('click', showModal);
+            document.getElementById('deblurredImg').addEventListener('click', showModal);
         }
 
         function downloadDeblurredImage() {
@@ -208,13 +271,19 @@
             link.click();
         }
 
-        // 實時更新銳化強度顯示
-        document.getElementById('sharpenLevel').addEventListener('input', function() {
-            document.getElementById('sharpenValue').textContent = this.value;
-            if (img) {
-                deblurImage(); // 實時更新預覽
-            }
-        });
+        // 放大模態窗口
+        function showModal(e) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const imgSrc = e.target.src;
+            modalContent.innerHTML = `<img src="${imgSrc}" alt="Zoomed Image">`;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+        }
     </script>
 </body>
 </html>
