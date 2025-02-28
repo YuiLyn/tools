@@ -8,6 +8,45 @@ body {
     background-color: #f0f0f0;
 }
 
+.comparison-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+    overflow: hidden;
+}
+
+.comparison-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.slider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 4px;
+    background-color: #000;
+    cursor: ew-resize;
+    z-index: 10;
+}
+
+.slider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -10px;
+    width: 24px;
+    height: 24px;
+    background-color: #fff;
+    border: 2px solid #000;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
 .container {
     background-color: white;
     padding: 20px;
