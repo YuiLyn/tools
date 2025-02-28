@@ -110,6 +110,7 @@
             const sharpenLevel = 1;
             const resultDiv = document.getElementById('result');
 
+            // 創建 canvas 來處理圖片
             canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) {
@@ -120,8 +121,10 @@
             canvas.height = img.height;
 
             try {
+                // 繪製原始圖片到 canvas
                 ctx.drawImage(img, 0, 0);
 
+                // 優化的銳化濾波器（使用卷積矩陣）
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
                 const sharpenMatrix = [
@@ -130,6 +133,7 @@
                     [-1, -1, -1]
                 ];
 
+                // 備份原始亮度以保持顏色平衡
                 const originalBrightness = [];
                 for (let i = 0; i < data.length; i += 4) {
                     const r = data[i];
@@ -161,6 +165,37 @@
                 ctx.putImageData(imageData, 0, 0);
                 deblurredImgSrc = canvas.toDataURL();
 
+                // 動態添加樣式
+                const style = document.createElement('style');
+                style.textContent = `
+                    .comparison-container {
+                        position: relative;
+                        width: 100%;
+                        height: auto;
+                        overflow: hidden;
+                    }
+                    .comparison-image {
+                        width: 100%;
+                        height: auto;
+                        display: block;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                    }
+                    .slider {
+                        position: absolute;
+                        top: 0;
+                        left: 50%;
+                        width: 2px;
+                        height: 100%;
+                        background-color: #000;
+                        cursor: ew-resize;
+                        z-index: 10;
+                    }
+                `;
+                document.head.appendChild(style);
+
+                // 顯示滑塊對比
                 resultDiv.innerHTML = `
                     <div class="comparison-container">
                         <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original">
@@ -172,6 +207,7 @@
                 document.getElementById('downloadOptions').style.display = 'block';
                 document.getElementById('downloadButton').style.display = 'block';
 
+                // 確保滑塊和圖片元素存在並添加事件
                 const originalImg = document.getElementById('originalImg');
                 const deblurredImg = document.getElementById('deblurredImg');
                 const slider = document.getElementById('slider');
