@@ -114,6 +114,9 @@
         // 核心处理逻辑
         async function processImage(img) {
             const startTime = performance.now();
+
+            console.log('矩阵尺寸:', src.size(), '通道数:', src.channels());
+            cv.imshow('debugCanvas', src); // 添加调试用canvas
             
             // 创建OpenCV矩阵
             const src = cv.imread(img);
