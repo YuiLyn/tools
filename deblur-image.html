@@ -78,11 +78,12 @@ function deblurImage() {
         resultDiv.innerHTML += "<p>拖動滑塊查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>";
         document.getElementById('downloadOptions').style.display = 'block';
         document.getElementById('downloadButton').style.display = 'block';
-        
-        // 確保滑塊和圖片事件監聽器正確添加
+
+        // 確保滑塊和圖片元素存在並添加事件
         const originalImg = document.getElementById('originalImg');
         const deblurredImg = document.getElementById('deblurredImg');
         const slider = document.getElementById('slider');
+
         if (originalImg && deblurredImg && slider) {
             originalImg.addEventListener('click', showModal);
             deblurredImg.addEventListener('click', showModal);
@@ -90,9 +91,12 @@ function deblurImage() {
             slider.addEventListener('touchmove', dragTouch);
             slider.addEventListener('touchend', stopDragTouch);
             updateSliderPosition(); // 初始化滑塊位置
-            console.log("滑塊和圖片顯示成功");
+            console.log("滑塊和圖片顯示成功，元素：", { originalImg, deblurredImg, slider });
         } else {
             console.error("無法找到滑塊或圖片元素：", { originalImg, deblurredImg, slider });
+            if (!originalImg) console.error("originalImg 未找到");
+            if (!deblurredImg) console.error("deblurredImg 未找到");
+            if (!slider) console.error("slider 未找到");
         }
     } catch (error) {
         alert("圖片修復失敗，請檢查瀏覽器或檔案！錯誤：", error.message);
