@@ -3,179 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>修復模糊圖片工具</title>
+    <title>固定强度去模糊对比工具</title>
     <link rel="stylesheet" href="style.css">
     <script async src="https://docs.opencv.org/master/opencv.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>修復模糊圖片工具</h1>
+        <h1>去模糊对比工具 (强度100%)</h1>
         <div class="input-group">
-            <label for="imageUpload">上傳模糊圖片:</label>
             <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
         </div>
-        <div class="param-group">
-            <label>去模糊強度: <span id="strengthValue">10</span></label>
-            <input type="range" id="strengthSlider" min="1" max="20" value="10" oninput="updateParams()">
-        </div>
-        <div class="param-group">
-            <label>PSF尺寸: <span id="psfSizeValue">5</span></label>
-            <input type="range" id="psfSizeSlider" min="3" max="15" step="2" value="5" oninput="updateParams()">
-        </div>
-        <div id="downloadOptions" class="input-group">
-            <label for="imageFormat">選擇輸出格式:</label>
-            <select id="imageFormat">
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
-            </select>
-            <button onclick="downloadDeblurredImage()" id="downloadButton">下載修復後的圖片</button>
-        </div>
-        <div class="result" id="result">
-            <div class="comparison-container">
-                <div class="image-box">
-                    <h3>原始圖片</h3>
-                    <canvas id="originalCanvas"></canvas>
-                </div>
-                <div class="image-box">
-                    <h3>修復結果</h3>
-                    <canvas id="processedCanvas"></canvas>
-                </div>
+        
+        <!-- 对比容器 -->
+        <div class="comparison-wrapper" id="comparisonWrapper">
+            <div class="before-container" id="beforeContainer">
+                <canvas id="originalCanvas"></canvas>
             </div>
+            <div class="after-container" id="afterContainer">
+                <canvas id="processedCanvas"></canvas>
+            </div>
+            <div class="slider-handle" id="sliderHandle"></div>
         </div>
-        <p><a href="index.html">返回工具主頁</a></p>
-    </div>
-
-    <!-- 加載動畫 -->
-    <div id="loading" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <p>正在處理中...</p>
     </div>
 
     <script>
         let originalImg = null;
-        let processedImgSrc = '';
-        let isProcessing = false;
-        let currentParams = {
-            strength: 10,
-            psfSize: 5
-        };
+        let processedImg = null;
+        let isDragging = false;
+        const fixedStrength = 100; // 固定强度参数
 
-        // 初始化OpenCV
+        // OpenCV初始化
         function initializeOpenCV() {
-            return new Promise((resolve, reject) => {
-                if (cv.getBuildInformation) {
-                    resolve();
-                } else {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        cv['onRuntimeInitialized'] = resolve;
-                    });
-                }
+            return new Promise((resolve) => {
+                if (cv.getBuildInformation) resolve();
+                else cv['onRuntimeInitialized'] = resolve;
             });
         }
 
         async function loadImage() {
-            if (isProcessing) return;
-            
             const file = document.getElementById('imageUpload').files[0];
             if (!file) return;
 
-            showLoading();
-            
-            try {
-                // 讀取圖片
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    originalImg = new Image();
-                    originalImg.src = e.target.result;
-                    
-                    originalImg.onload = async () => {
-                        await initializeOpenCV();
-                        processImage();
-                    };
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                originalImg = new Image();
+                originalImg.onload = async () => {
+                    await initializeOpenCV();
+                    processImage();
+                    initComparison();
                 };
-                reader.readAsDataURL(file);
-            } catch (error) {
-                console.error('圖片加載錯誤:', error);
-                hideLoading();
-            }
+                originalImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
+        // 固定强度去模糊处理
         async function processImage() {
-            try {
-                isProcessing = true;
-                
-                // 創建OpenCV矩陣
-                const src = cv.imread(originalImg);
-                const dst = new cv.Mat();
-                
-                // 創建PSF（高斯模糊核）
-                const psfSize = new cv.Size(currentParams.psfSize, currentParams.psfSize);
-                const psf = new cv.Mat();
-                cv.getGaussianKernel(currentParams.psfSize, currentParams.strength, cv.CV_32F).mul(
-                    cv.getGaussianKernel(currentParams.psfSize, currentParams.strength, cv.CV_32F).t(),
-                    1, psf
-                );
-                
-                // 維納反卷積
-                cv.deconvoWiener(src, dst, psf, currentParams.strength);
-                
-                // 顯示結果
-                cv.imshow('processedCanvas', dst);
-                
-                // 保存結果
-                processedImgSrc = document.getElementById('processedCanvas').toDataURL();
-                
-                // 清理內存
-                src.delete();
-                dst.delete();
-                psf.delete();
-                
-                // 顯示下載選項
-                document.getElementById('downloadOptions').style.display = 'block';
-            } catch (error) {
-                console.error('圖像處理錯誤:', error);
-            } finally {
-                isProcessing = false;
-                hideLoading();
-            }
-        }
-
-        function updateParams() {
-            currentParams.strength = parseInt(document.getElementById('strengthSlider').value);
-            currentParams.psfSize = parseInt(document.getElementById('psfSizeSlider').value);
+            const src = cv.imread(originalImg);
+            const dst = new cv.Mat();
             
-            document.getElementById('strengthValue').textContent = currentParams.strength;
-            document.getElementById('psfSizeValue').textContent = currentParams.psfSize;
+            // 固定PSF尺寸与强度参数
+            const psfSize = new cv.Size(15, 15);
+            const psf = cv.Mat.ones(psfSize, cv.CV_32F);
+            cv.normalize(psf, psf, 1, 0, cv.NORM_L1);
             
-            if (originalImg) {
-                processImage();
-            }
+            // 维纳反卷积（固定强度）
+            cv.deconvoWiener(src, dst, psf, fixedStrength/100);
+            
+            // 保存处理结果
+            cv.imshow('processedCanvas', dst);
+            processedImg = document.getElementById('processedCanvas');
+            
+            // 清理内存
+            src.delete();
+            dst.delete();
+            psf.delete();
         }
 
-        function downloadDeblurredImage() {
-            const format = document.getElementById('imageFormat').value;
-            const link = document.createElement('a');
-            link.download = `deblurred_image.${format}`;
-            link.href = processedImgSrc.replace('image/png', `image/${format}`);
-            link.click();
-        }
-
-        function showLoading() {
-            document.getElementById('loading').style.display = 'flex';
-        }
-
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
-
-        // 初始化Canvas尺寸
-        function initCanvasSize() {
-            const canvases = ['originalCanvas', 'processedCanvas'];
-            canvases.forEach(id => {
+        // 初始化对比滑块
+        function initComparison() {
+            const wrapper = document.getElementById('comparisonWrapper');
+            const handle = document.getElementById('sliderHandle');
+            
+            // 设置画布尺寸
+            ['originalCanvas', 'processedCanvas'].forEach(id => {
                 const canvas = document.getElementById(id);
                 canvas.width = originalImg.width;
                 canvas.height = originalImg.height;
             });
+
+            // 事件监听
+            handle.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = wrapper.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width * 100;
+                updateSliderPosition(Math.min(Math.max(percent, 0), 100));
+            });
+            document.addEventListener('mouseup', () => isDragging = false);
+        }
+
+        // 更新滑块位置
+        function updateSliderPosition(percent) {
+            const before = document.getElementById('beforeContainer');
+            const handle = document.getElementById('sliderHandle');
+            
+            before.style.width = `${percent}%`;
+            handle.style.left = `calc(${percent}% - 8px)`;
         }
     </script>
 </body>
