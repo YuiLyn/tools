@@ -15,7 +15,7 @@
         </div>
         
         <!-- 对比容器 -->
-        <div class="comparison-wrapper" id="comparisonWrapper">
+        <div class="comparison-wrapper" id="comparisonWrapper" style="display:none;">
             <div class="before-container" id="beforeContainer">
                 <canvas id="originalCanvas"></canvas>
             </div>
@@ -24,86 +24,162 @@
             </div>
             <div class="slider-handle" id="sliderHandle"></div>
         </div>
+
+        <!-- 加载提示 -->
+        <div id="loading" class="result" style="display:none; color:#4CAF50;">
+            正在处理中，请稍候... (大型图片可能需要30秒)
+        </div>
     </div>
 
     <script>
         let originalImg = null;
-        let processedImg = null;
-        let isDragging = false;
-        const fixedStrength = 100; // 固定强度参数
+        let isProcessing = false;
+        let opencvReady = false;
+        const maxSize = 2000; // 最大处理尺寸
 
         // OpenCV初始化
-        function initializeOpenCV() {
-            return new Promise((resolve) => {
-                if (cv.getBuildInformation) resolve();
-                else cv['onRuntimeInitialized'] = resolve;
-            });
-        }
+        cv['onRuntimeInitialized'] = () => {
+            opencvReady = true;
+            console.log('OpenCV.js 初始化完成');
+        };
 
         async function loadImage() {
+            if (isProcessing) return;
+            
             const file = document.getElementById('imageUpload').files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                originalImg = new Image();
-                originalImg.onload = async () => {
-                    await initializeOpenCV();
-                    processImage();
-                    initComparison();
-                };
-                originalImg.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            showLoading();
+            hideComparison();
+            
+            try {
+                // 异步加载图片
+                originalImg = await loadImageFile(file);
+                if (!opencvReady) throw new Error('OpenCV尚未初始化完成');
+                
+                // 尺寸限制
+                const scaledImg = await scaleImageIfNeeded(originalImg);
+                
+                // 处理图像
+                await processImage(scaledImg);
+                
+                // 初始化对比
+                initComparison();
+                showComparison();
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+                isProcessing = false;
+            }
         }
 
-        // 固定强度去模糊处理
-        async function processImage() {
-            const src = cv.imread(originalImg);
+        // 图像文件加载
+        function loadImageFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error('图片加载失败'));
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject(new Error('文件读取失败'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 图像缩放处理
+        function scaleImageIfNeeded(img) {
+            return new Promise((resolve) => {
+                if (img.width <= maxSize && img.height <= maxSize) {
+                    resolve(img);
+                    return;
+                }
+
+                const canvas = document.createElement('canvas');
+                const scale = Math.min(maxSize / img.width, maxSize / img.height);
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                const scaledImg = new Image();
+                scaledImg.onload = () => resolve(scaledImg);
+                scaledImg.src = canvas.toDataURL();
+            });
+        }
+
+        // 核心处理逻辑
+        async function processImage(img) {
+            const startTime = performance.now();
+            
+            // 创建OpenCV矩阵
+            const src = cv.imread(img);
             const dst = new cv.Mat();
             
-            // 固定PSF尺寸与强度参数
-            const psfSize = new cv.Size(15, 15);
-            const psf = cv.Mat.ones(psfSize, cv.CV_32F);
-            cv.normalize(psf, psf, 1, 0, cv.NORM_L1);
-            
-            // 维纳反卷积（固定强度）
-            cv.deconvoWiener(src, dst, psf, fixedStrength/100);
-            
-            // 保存处理结果
-            cv.imshow('processedCanvas', dst);
-            processedImg = document.getElementById('processedCanvas');
-            
-            // 清理内存
-            src.delete();
-            dst.delete();
-            psf.delete();
+            try {
+                // PSF参数（固定强度）
+                const psfSize = new cv.Size(15, 15);
+                const psf = cv.Mat.ones(psfSize, cv.CV_32F);
+                cv.normalize(psf, psf, 1, 0, cv.NORM_L1);
+
+                // 维纳反卷积
+                cv.deconvoWiener(src, dst, psf, 1.0); // 强度参数100%
+
+                // 渲染结果
+                renderToCanvas(dst, 'processedCanvas');
+                renderToCanvas(src, 'originalCanvas');
+                
+                console.log(`处理完成，耗时：${(performance.now() - startTime).toFixed(1)}ms`);
+            } finally {
+                // 内存清理
+                [src, dst, psf].forEach(m => m && !m.isDeleted && m.delete());
+            }
         }
 
-        // 初始化对比滑块
+        // Canvas渲染
+        function renderToCanvas(mat, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            canvas.width = mat.cols;
+            canvas.height = mat.rows;
+            cv.imshow(canvas, mat);
+        }
+
+        // 对比滑块控制
         function initComparison() {
             const wrapper = document.getElementById('comparisonWrapper');
             const handle = document.getElementById('sliderHandle');
             
-            // 设置画布尺寸
-            ['originalCanvas', 'processedCanvas'].forEach(id => {
-                const canvas = document.getElementById(id);
-                canvas.width = originalImg.width;
-                canvas.height = originalImg.height;
-            });
-
             // 事件监听
-            handle.addEventListener('mousedown', () => isDragging = true);
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const rect = wrapper.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width * 100;
-                updateSliderPosition(Math.min(Math.max(percent, 0), 100));
-            });
-            document.addEventListener('mouseup', () => isDragging = false);
+            handle.addEventListener('mousedown', startDragging);
+            document.addEventListener('mousemove', handleDragging);
+            document.addEventListener('mouseup', stopDragging);
+            
+            // 初始化位置
+            updateSliderPosition(50);
         }
 
-        // 更新滑块位置
+        let isDragging = false;
+        function startDragging() {
+            isDragging = true;
+            document.body.classList.add('dragging');
+        }
+
+        function handleDragging(e) {
+            if (!isDragging) return;
+            const wrapper = document.getElementById('comparisonWrapper');
+            const rect = wrapper.getBoundingClientRect();
+            const percent = ((e.clientX - rect.left) / rect.width * 100).clamp(0, 100);
+            updateSliderPosition(percent);
+        }
+
+        function stopDragging() {
+            isDragging = false;
+            document.body.classList.remove('dragging');
+        }
+
         function updateSliderPosition(percent) {
             const before = document.getElementById('beforeContainer');
             const handle = document.getElementById('sliderHandle');
@@ -111,6 +187,35 @@
             before.style.width = `${percent}%`;
             handle.style.left = `calc(${percent}% - 8px)`;
         }
+
+        // UI控制
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            isProcessing = true;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showComparison() {
+            document.getElementById('comparisonWrapper').style.display = 'block';
+        }
+
+        function hideComparison() {
+            document.getElementById('comparisonWrapper').style.display = 'none';
+        }
+
+        function showError(msg) {
+            const resultDiv = document.getElementById('loading');
+            resultDiv.style.color = '#ff4444';
+            resultDiv.innerHTML = `错误：${msg}`;
+        }
+
+        // 数值范围限制
+        Number.prototype.clamp = function(min, max) {
+            return Math.min(Math.max(this, min), max);
+        };
     </script>
 </body>
 </html>
