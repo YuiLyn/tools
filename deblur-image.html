@@ -50,8 +50,14 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 img = new Image();
+                img.crossOrigin = "Anonymous"; // 嘗試解決跨域問題
                 img.src = e.target.result;
                 img.onload = function() {
+                    if (img.width === 0 || img.height === 0) {
+                        alert("圖片尺寸無效，請檢查檔案！");
+                        console.error("圖片尺寸為 0：", img.src);
+                        return;
+                    }
                     document.getElementById('result').innerHTML = "圖片已加載，立即查看修復效果！";
                     console.log("圖片加載成功，尺寸：", img.width, "x", img.height);
                     originalImgSrc = img.src; // 儲存原始圖片數據
@@ -226,6 +232,30 @@
             const modal = document.getElementById('modal');
             modal.style.display = 'none';
             console.log("關閉放大視圖");
+        }
+
+        // 添加觸摸事件支持
+        document.getElementById('slider').addEventListener('touchstart', startDragTouch);
+        document.getElementById('slider').addEventListener('touchmove', dragTouch);
+        document.getElementById('slider').addEventListener('touchend', stopDragTouch);
+
+        function startDragTouch(e) {
+            isDragging = true;
+            e.preventDefault();
+        }
+
+        function dragTouch(e) {
+            if (!isDragging) return;
+            const container = document.querySelector('.comparison-container');
+            const rect = container.getBoundingClientRect();
+            let x = e.touches[0].clientX - rect.left;
+            sliderPosition = (x / rect.width) * 100;
+            updateSliderPosition();
+            e.preventDefault();
+        }
+
+        function stopDragTouch() {
+            isDragging = false;
         }
     </script>
 </body>
