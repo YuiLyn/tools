@@ -17,38 +17,31 @@ body {
     overflow: hidden;
 }
 
-/* 前后画布容器 */
-.before-container, .after-container {
-    position: absolute;
-    top: 0;
+.comparison-container {
+    position: relative;
     width: 100%;
-    height: 100%;
+    height: auto;
+    overflow: hidden;
 }
 
-.before-container {
-    width: 50%;
-    z-index: 2;
-    clip-path: inset(0 0 0 0);
-}
-
-/* 滑块控件 */
-.slider-handle {
+.comparison-image {
+    width: 100%;
+    height: auto;
+    display: block;
     position: absolute;
     top: 0;
-    left: calc(50% - 8px);
-    width: 16px;
-    height: 100%;
-    background: #fff;
-    cursor: ew-resize;
-    z-index: 3;
-    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    left: 0;
 }
 
-/* 画布尺寸适配 */
-canvas {
-    width: 100%!important;
-    height: 100%!important;
-    object-fit: contain;
+.slider {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background-color: #000;
+    cursor: ew-resize;
+    z-index: 10;
 }
 
 .container {
