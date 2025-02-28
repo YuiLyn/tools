@@ -1,122 +1,232 @@
-function loadImage() {
-    const file = document.getElementById('imageUpload').files[0];
-    if (!file) {
-        alert("請選擇一個圖片檔案！");
-        console.log("未選擇檔案");
-        return;
-    }
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復模糊圖片工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>修復模糊圖片工具</h1>
+        <div class="input-group">
+            <label for="imageUpload">上傳模糊圖片:</label>
+            <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
+        </div>
+        <div class="input-group" style="display: none;" id="downloadOptions">
+            <label for="imageFormat">選擇輸出格式:</label>
+            <select id="imageFormat">
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+            </select>
+        </div>
+        <button onclick="downloadDeblurredImage()" style="display: none;" id="downloadButton">下載修復後的圖片</button>
+        <div class="result" id="result"></div>
+        <p><a href="index.html">返回工具主頁</a></p>
+    </div>
 
-    console.log("選擇的檔案：", file.name, "，類型：", file.type, "，大小：", file.size);
+    <!-- 放大模態窗口 -->
+    <div class="modal" id="modal">
+        <span class="close" onclick="closeModal()">×</span>
+        <div class="modal-content" id="modalContent"></div>
+    </div>
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        img = new Image();
-        img.src = e.target.result;
-        img.onload = function() {
-            document.getElementById('result').innerHTML = "圖片已加載，立即查看修復效果！";
-            console.log("圖片加載成功，尺寸：", img.width, "x", img.height);
-            originalImgSrc = img.src; // 儲存原始圖片數據
-            deblurredImgSrc = ''; // 重置修復後的圖片數據
-            deblurImage(); // 立即修復並顯示滑塊
-        };
-        img.onerror = function() {
-            alert("圖片加載失敗，請檢查檔案格式或網絡！檔案：", file.name);
-            console.error("圖片加載錯誤：", img.src, "，錯誤原因：", img.error);
-        };
-    };
-    reader.onerror = function() {
-        alert("檔案讀取失敗，請檢查檔案或網絡！檔案：", file.name);
-        console.error("FileReader 錯誤：", file, "，錯誤原因：", reader.error);
-    };
-    reader.readAsDataURL(file);
-}
+    <script>
+        let img = null;
+        let canvas = null;
+        let originalImgSrc = '';
+        let deblurredImgSrc = '';
 
-function deblurImage() {
-    if (!img) {
-        alert("請先上傳圖片！");
-        console.log("img 為 null");
-        return;
-    }
+        function loadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) {
+                alert("請選擇一個圖片檔案！");
+                console.log("未選擇檔案");
+                return;
+            }
 
-    const sharpenLevel = 1; // 固定為 100% 銳化強度
-    const resultDiv = document.getElementById('result');
+            console.log("選擇的檔案：", file.name, "，類型：", file.type, "，大小：", file.size);
 
-    // 創建 canvas 來處理圖片
-    canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        alert("瀏覽器不支持 canvas，請使用現代瀏覽器（如 Chrome 或 Safari）！");
-        console.error("Canvas 創建失敗");
-        return;
-    }
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    try {
-        // 繪製原始圖片到 canvas
-        ctx.drawImage(img, 0, 0);
-        console.log("圖片繪製到 canvas 成功");
-
-        // 優化的銳化濾波器（使用卷積矩陣）
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const sharpenMatrix = [
-            [-1, -1, -1],
-            [-1, 9, -1],  // 使用較強的中心值以保持亮度
-            [-1, -1, -1]
-        ];
-
-        // 備份原始亮度以保持顏色平衡
-        const originalBrightness = [];
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            originalBrightness.push((r + g + b) / 3); // 計算平均亮度
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    document.getElementById('result').innerHTML = "圖片已加載，立即查看修復效果！";
+                    console.log("圖片加載成功，尺寸：", img.width, "x", img.height);
+                    originalImgSrc = img.src; // 儲存原始圖片數據
+                    deblurredImgSrc = ''; // 重置修復後的圖片數據
+                    deblurImage(); // 立即修復並顯示滑塊
+                };
+                img.onerror = function() {
+                    alert("圖片加載失敗，請檢查檔案格式或網絡！檔案：", file.name);
+                    console.error("圖片加載錯誤：", img.src, "，錯誤原因：", img.error);
+                };
+            };
+            reader.onerror = function() {
+                alert("檔案讀取失敗，請檢查檔案或網絡！檔案：", file.name);
+                console.error("FileReader 錯誤：", file, "，錯誤原因：", reader.error);
+            };
+            reader.readAsDataURL(file);
         }
 
-        for (let y = 1; y < canvas.height - 1; y++) {
-            for (let x = 1; x < canvas.width - 1; x++) {
-                for (let c = 0; c < 3; c++) { // RGB 通道
-                    let sum = 0;
-                    for (let ky = -1; ky <= 1; ky++) {
-                        for (let kx = -1; kx <= 1; kx++) {
-                            const pixelIndex = ((y + ky) * canvas.width + (x + kx)) * 4 + c;
-                            sum += data[pixelIndex] * sharpenMatrix[ky + 1][kx + 1];
+        let isDragging = false;
+        let sliderPosition = 50; // 初始滑塊位置（50%）
+
+        function startDrag(e) {
+            isDragging = true;
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            const container = document.querySelector('.comparison-container');
+            const rect = container.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            sliderPosition = (x / rect.width) * 100;
+            updateSliderPosition();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+        }
+
+        function updateSliderPosition() {
+            const slider = document.getElementById('slider');
+            const originalImg = document.getElementById('originalImg');
+            const deblurredImg = document.getElementById('deblurredImg');
+            sliderPosition = Math.max(0, Math.min(100, sliderPosition)); // 限制在 0-100%
+            slider.style.left = `${sliderPosition}%`;
+            originalImg.style.clipPath = `inset(0 ${100 - sliderPosition}% 0 0)`;
+            deblurredImg.style.clipPath = `inset(0 ${sliderPosition}% 0 0)`;
+        }
+
+        function deblurImage() {
+            if (!img) {
+                alert("請先上傳圖片！");
+                console.log("img 為 null");
+                return;
+            }
+
+            const sharpenLevel = 1; // 固定為 100% 銳化強度
+            const resultDiv = document.getElementById('result');
+
+            // 創建 canvas 來處理圖片
+            canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                alert("瀏覽器不支持 canvas，請使用現代瀏覽器（如 Chrome 或 Safari）！");
+                console.error("Canvas 創建失敗");
+                return;
+            }
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            try {
+                // 繪製原始圖片到 canvas
+                ctx.drawImage(img, 0, 0);
+                console.log("圖片繪製到 canvas 成功");
+
+                // 優化的銳化濾波器（使用卷積矩陣）
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const sharpenMatrix = [
+                    [-1, -1, -1],
+                    [-1, 9, -1],  // 使用較強的中心值以保持亮度
+                    [-1, -1, -1]
+                ];
+
+                // 備份原始亮度以保持顏色平衡
+                const originalBrightness = [];
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    originalBrightness.push((r + g + b) / 3); // 計算平均亮度
+                }
+
+                for (let y = 1; y < canvas.height - 1; y++) {
+                    for (let x = 1; x < canvas.width - 1; x++) {
+                        for (let c = 0; c < 3; c++) { // RGB 通道
+                            let sum = 0;
+                            for (let ky = -1; ky <= 1; ky++) {
+                                for (let kx = -1; kx <= 1; kx++) {
+                                    const pixelIndex = ((y + ky) * canvas.width + (x + kx)) * 4 + c;
+                                    sum += data[pixelIndex] * sharpenMatrix[ky + 1][kx + 1];
+                                }
+                            }
+                            const currentIndex = (y * canvas.width + x) * 4 + c;
+                            // 調整亮度，保持原始亮度的比例
+                            const originalBright = originalBrightness[(y * canvas.width + x)];
+                            let newValue = sum * sharpenLevel;
+                            newValue = Math.min(255, Math.max(0, newValue));
+                            // 增加亮度補償，確保高銳化強度時亮度正常
+                            newValue = newValue * (1 + (originalBright / 255) * 0.5); // 增加亮度補償
+                            data[currentIndex] = Math.min(255, Math.max(0, newValue));
                         }
                     }
-                    const currentIndex = (y * canvas.width + x) * 4 + c;
-                    // 調整亮度，保持原始亮度的比例
-                    const originalBright = originalBrightness[(y * canvas.width + x)];
-                    let newValue = sum * sharpenLevel;
-                    newValue = Math.min(255, Math.max(0, newValue));
-                    // 增加亮度補償，確保高銳化強度時亮度正常
-                    newValue = newValue * (1 + (originalBright / 255) * 0.5); // 增加亮度補償
-                    data[currentIndex] = Math.min(255, Math.max(0, newValue));
                 }
+
+                ctx.putImageData(imageData, 0, 0);
+                deblurredImgSrc = canvas.toDataURL(); // 儲存修復後的圖片數據
+
+                // 顯示滑塊對比
+                resultDiv.innerHTML = `
+                    <div class="comparison-container">
+                        <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
+                        <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; clip-path: inset(0 50% 0 0);">
+                        <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
+                    </div>
+                `;
+                resultDiv.innerHTML += "<p>拖動滑塊查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>";
+                document.getElementById('downloadOptions').style.display = 'block';
+                document.getElementById('downloadButton').style.display = 'block';
+                document.getElementById('originalImg').addEventListener('click', showModal);
+                document.getElementById('deblurredImg').addEventListener('click', showModal);
+                updateSliderPosition(); // 初始化滑塊位置
+                console.log("滑塊顯示成功");
+            } catch (error) {
+                alert("圖片修復失敗，請檢查瀏覽器或檔案！錯誤：", error.message);
+                console.error("修復錯誤：", error);
             }
         }
 
-        ctx.putImageData(imageData, 0, 0);
-        deblurredImgSrc = canvas.toDataURL(); // 儲存修復後的圖片數據
+        function downloadDeblurredImage() {
+            if (!canvas) {
+                alert("請先修復圖片！");
+                console.log("canvas 為 null");
+                return;
+            }
 
-        // 顯示滑塊對比
-        resultDiv.innerHTML = `
-            <div class="comparison-container">
-                <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original" style="position: absolute; left: 0; width: 100%; height: auto;">
-                <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred" style="position: absolute; left: 0; width: 100%; height: auto; clip-path: inset(0 50% 0 0);">
-                <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
-            </div>
-        `;
-        resultDiv.innerHTML += "<p>拖動滑塊查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>";
-        document.getElementById('downloadOptions').style.display = 'block';
-        document.getElementById('downloadButton').style.display = 'block';
-        document.getElementById('originalImg').addEventListener('click', showModal);
-        document.getElementById('deblurredImg').addEventListener('click', showModal);
-        updateSliderPosition(); // 初始化滑塊位置
-        console.log("滑塊顯示成功");
-    } catch (error) {
-        alert("圖片修復失敗，請檢查瀏覽器或檔案！錯誤：", error.message);
-        console.error("修復錯誤：", error);
-    }
-}
+            const format = document.getElementById('imageFormat').value;
+            let dataURL;
+            if (format === 'png') {
+                dataURL = canvas.toDataURL('image/png');
+            } else if (format === 'jpg') {
+                dataURL = canvas.toDataURL('image/jpeg', 0.95); // JPG 質量設為 95%
+            }
+
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = `deblurred_image.${format}`;
+            link.click();
+            console.log("下載圖片：", `deblurred_image.${format}`);
+        }
+
+        // 放大模態窗口
+        function showModal(e) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const imgSrc = e.target.src;
+            modalContent.innerHTML = `<img src="${imgSrc}" alt="Zoomed Image">`;
+            modal.style.display = 'flex';
+            console.log("顯示放大視圖：", imgSrc);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+            console.log("關閉放大視圖");
+        }
+    </script>
+</body>
+</html>
