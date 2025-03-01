@@ -5,6 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>修復模糊圖片工具</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .comparison-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        .comparison-image {
+            width: 48%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .comparison-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #333;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .modal-content img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -57,7 +112,7 @@
                     document.getElementById('result').innerHTML = "圖片已加載，立即查看修復效果！";
                     originalImgSrc = img.src;
                     deblurredImgSrc = '';
-                    deblurImage();
+                    deblurImage(); // 立即修復並顯示左右對比
                 };
                 img.onerror = function() {
                     alert("圖片加載失敗，請檢查檔案格式或網絡！");
@@ -69,45 +124,13 @@
             reader.readAsDataURL(file);
         }
 
-        let isDragging = false;
-        let sliderPosition = 50;
-
-        function startDrag(e) {
-            isDragging = true;
-        }
-
-        function drag(e) {
-            if (!isDragging) return;
-            const container = document.querySelector('.comparison-container');
-            const rect = container.getBoundingClientRect();
-            let x = e.clientX - rect.left;
-            sliderPosition = (x / rect.width) * 100;
-            updateSliderPosition();
-        }
-
-        function stopDrag() {
-            isDragging = false;
-        }
-
-        function updateSliderPosition() {
-            const slider = document.getElementById('slider');
-            const originalImg = document.getElementById('originalImg');
-            const deblurredImg = document.getElementById('deblurredImg');
-            if (slider && originalImg && deblurredImg) {
-                sliderPosition = Math.max(0, Math.min(100, sliderPosition));
-                slider.style.left = `${sliderPosition}%`;
-                originalImg.style.clipPath = `inset(0 ${100 - sliderPosition}% 0 0)`;
-                deblurredImg.style.clipPath = `inset(0 0 0 ${sliderPosition}%)`;
-            }
-        }
-
         function deblurImage() {
             if (!img) {
                 alert("請先上傳圖片！");
                 return;
             }
 
-            const sharpenLevel = 1;
+            const sharpenLevel = 1; // 固定為 100% 銳化強度
             const resultDiv = document.getElementById('result');
 
             // 創建 canvas 來處理圖片
@@ -165,60 +188,29 @@
                 ctx.putImageData(imageData, 0, 0);
                 deblurredImgSrc = canvas.toDataURL();
 
-                // 動態添加樣式
-                const style = document.createElement('style');
-                style.textContent = `
-                    .comparison-container {
-                        position: relative;
-                        width: 100%;
-                        height: auto;
-                        overflow: hidden;
-                    }
-                    .comparison-image {
-                        width: 100%;
-                        height: auto;
-                        display: block;
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                    }
-                    .slider {
-                        position: absolute;
-                        top: 0;
-                        left: 50%;
-                        width: 2px;
-                        height: 100%;
-                        background-color: #000;
-                        cursor: ew-resize;
-                        z-index: 10;
-                    }
-                `;
-                document.head.appendChild(style);
-
-                // 顯示滑塊對比
+                // 顯示左右分屏對比
                 resultDiv.innerHTML = `
                     <div class="comparison-container">
-                        <img class="comparison-image" id="originalImg" src="${originalImgSrc}" alt="Original">
-                        <img class="comparison-image" id="deblurredImg" src="${deblurredImgSrc}" alt="Deblurred">
-                        <div class="slider" id="slider" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()"></div>
+                        <div class="comparison-image">
+                            <img src="${originalImgSrc}" alt="Before">
+                            <div class="label">Before</div>
+                        </div>
+                        <div class="comparison-image">
+                            <img src="${deblurredImgSrc}" alt="After">
+                            <div class="label">After</div>
+                        </div>
                     </div>
-                    <p>拖動滑塊查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>
+                    <p>直接查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>
                 `;
                 document.getElementById('downloadOptions').style.display = 'block';
                 document.getElementById('downloadButton').style.display = 'block';
 
-                // 確保滑塊和圖片元素存在並添加事件
-                const originalImg = document.getElementById('originalImg');
-                const deblurredImg = document.getElementById('deblurredImg');
-                const slider = document.getElementById('slider');
-
-                if (originalImg && deblurredImg && slider) {
-                    originalImg.addEventListener('click', showModal);
-                    deblurredImg.addEventListener('click', showModal);
-                    slider.addEventListener('touchstart', startDragTouch);
-                    slider.addEventListener('touchmove', dragTouch);
-                    slider.addEventListener('touchend', stopDragTouch);
-                    updateSliderPosition();
+                // 添加點擊放大事件
+                const beforeImg = resultDiv.querySelector('.comparison-image:first-child img');
+                const afterImg = resultDiv.querySelector('.comparison-image:last-child img');
+                if (beforeImg && afterImg) {
+                    beforeImg.addEventListener('click', showModal);
+                    afterImg.addEventListener('click', showModal);
                 }
             } catch (error) {
                 alert("圖片修復失敗，請檢查瀏覽器或檔案！");
@@ -256,25 +248,6 @@
         function closeModal() {
             const modal = document.getElementById('modal');
             modal.style.display = 'none';
-        }
-
-        function startDragTouch(e) {
-            isDragging = true;
-            e.preventDefault();
-        }
-
-        function dragTouch(e) {
-            if (!isDragging) return;
-            const container = document.querySelector('.comparison-container');
-            const rect = container.getBoundingClientRect();
-            let x = e.touches[0].clientX - rect.left;
-            sliderPosition = (x / rect.width) * 100;
-            updateSliderPosition();
-            e.preventDefault();
-        }
-
-        function stopDragTouch() {
-            isDragging = false;
         }
     </script>
 </body>
