@@ -120,6 +120,16 @@
     <!-- 引入 OpenCV.js -->
     <script src="opencv.js" async onload="onOpenCVReady()" onerror="handleOpenCVError()"></script>
     <script>
+        function onOpenCVReady() {
+            cv = window.cv; // 確保 OpenCV 加載完成
+            console.log("OpenCV.js 加載成功");
+        }
+        
+        function handleOpenCVError() {
+            alert("OpenCV.js 加載失敗，請檢查網絡或檔案！請嘗試刷新頁面或聯繫管理員。");
+            console.error("OpenCV.js 加載錯誤");
+        }
+        
         let img = null;
         let canvas = null;
         let originalImgSrc = '';
