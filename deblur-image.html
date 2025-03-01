@@ -1,208 +1,452 @@
-let img = null;
-let canvas = null;
-let originalImgSrc = '';
-let deblurredImgSrc = '';
-
-function enableDeblurButton() {
-    const deblurButton = document.getElementById('deblurButton');
-    deblurButton.disabled = false;
-    deblurButton.textContent = '修復圖片';
-    deblurButton.style.backgroundColor = '#4CAF50';
-    deblurButton.style.color = 'white';
-    deblurButton.style.cursor = 'pointer';
-    console.log("修復按鈕已啟用");
-}
-
-function disableDeblurButton() {
-    const deblurButton = document.getElementById('deblurButton');
-    deblurButton.disabled = true;
-    deblurButton.textContent = '正在加載 OpenCV';
-    deblurButton.style.backgroundColor = '#ccc';
-    deblurButton.style.color = '#666';
-    deblurButton.style.cursor = 'not-allowed';
-    console.log("修復按鈕已禁用");
-}
-
-function loadImage() {
-    const file = document.getElementById('imageUpload').files[0];
-    if (!file) {
-        alert("請選擇一個圖片檔案！");
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = e.target.result;
-        img.onload = function() {
-            if (img.width === 0 || img.height === 0) {
-                alert("圖片尺寸無效，請檢查檔案！");
-                return;
-            }
-            if (img.width > 2000 || img.height > 2000) {
-                alert("圖片尺寸過大，請選擇較小的圖片（建議 2000x2000 像素以下）！");
-                return;
-            }
-            document.getElementById('result').innerHTML = "圖片已加載，請點擊「修復圖片」按鈕修復...";
-            originalImgSrc = img.src;
-            deblurredImgSrc = '';
-            if (cv) {
-                enableDeblurButton(); // 如果 OpenCV 已加載，啟用按鈕
-            }
-        };
-        img.onerror = function() {
-            alert("圖片加載失敗，請檢查檔案格式或網絡！");
-            hideProgress(); // 隱藏進度條
-        };
-    };
-    reader.onerror = function() {
-        alert("檔案讀取失敗，請檢查檔案或網絡！");
-        hideProgress(); // 隱藏進度條
-    };
-    reader.readAsDataURL(file);
-}
-
-function showProgress() {
-    const progressContainer = document.getElementById('progressContainer');
-    progressContainer.style.display = 'block';
-    updateProgress(0);
-}
-
-function hideProgress() {
-    const progressContainer = document.getElementById('progressContainer');
-    progressContainer.style.display = 'none';
-    updateProgress(0);
-}
-
-function updateProgress(percentage) {
-    const progress = document.getElementById('progress');
-    const progressText = document.getElementById('progressText');
-    progress.style.width = `${percentage}%`;
-    progressText.textContent = `處理中：${percentage}%`;
-}
-
-function deblurImage() {
-    if (!img || !cv) {
-        alert("請等待 OpenCV.js 加載完成或檢查網絡連線！");
-        hideProgress();
-        return;
-    }
-
-    const resultDiv = document.getElementById('result');
-    canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        alert("瀏覽器不支持 canvas，請使用現代瀏覽器（如 Chrome 或 Safari）！");
-        hideProgress();
-        return;
-    }
-    canvas.width = img.width;
-    canvas.height = img.height;
-
-    try {
-        ctx.drawImage(img, 0, 0);
-        console.log("圖片繪製到 canvas 成功，尺寸：", canvas.width, "x", canvas.height);
-
-        // 將圖片數據轉換為 OpenCV Mat
-        const src = cv.imread(canvas);
-        const dst = new cv.Mat();
-        const kernel = cv.Mat.ones(3, 3, cv.CV_32F); // 3x3 模糊核（可調整）
-        kernel.convertTo(kernel, cv.CV_32F, 1/9, 0); // 均值模糊核
-
-        // 模擬進度（基於圖片行數）
-        let progress = 0;
-        const totalRows = src.rows;
-        let processedRows = 0;
-
-        // Wiener Deconvolution（使用 OpenCV）
-        cv.wienerDeconvolution(src, dst, kernel, 0.01); // 噪聲水平設置為 0.01（可調整）
-        // 或者 Lucy-Richardson Deconvolution
-        // cv.deconvolution(src, dst, kernel, 15); // 迭代次數設為 15（可調整）
-
-        // 更新進度（模擬處理）
-        for (let i = 0; i < src.rows; i++) {
-            processedRows++;
-            progress = Math.floor((processedRows / totalRows) * 100);
-            updateProgress(progress);
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修復模糊圖片工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
         }
 
-        // 將結果繪製回 canvas
-        cv.imshow(canvas, dst);
-        deblurredImgSrc = canvas.toDataURL();
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
 
-        // 清理 OpenCV 記憶體
-        src.delete();
-        dst.delete();
-        kernel.delete();
+        .input-group {
+            margin: 20px 0;
+            text-align: center;
+        }
 
-        // 顯示左右分屏對比
-        resultDiv.innerHTML = `
-            <div class="comparison-container">
-                <div class="comparison-image">
-                    <img src="${originalImgSrc}" alt="Before">
-                    <div class="label">Before</div>
-                </div>
-                <div class="comparison-image">
-                    <img src="${deblurredImgSrc}" alt="After">
-                    <div class="label">After</div>
-                </div>
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, select {
+            padding: 8px;
+            font-size: 16px;
+            width: 100%;
+            max-width: 200px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        button:enabled {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        button:enabled:hover {
+            background-color: #45a049;
+        }
+
+        .result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        .comparison-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+
+        .comparison-image {
+            width: 48%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .comparison-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .label {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #333;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>修復模糊圖片工具</h1>
+        <div class="input-group">
+            <label for="imageUpload">上傳模糊圖片:</label>
+            <input type="file" id="imageUpload" accept="image/*" onchange="loadImage()">
+        </div>
+        <button id="deblurButton" disabled style="padding: 10px 20px; font-size: 16px; background-color: #ccc; color: #666; border: none; border-radius: 4px; cursor: not-allowed; margin: 20px auto; display: block;">正在加載 OpenCV</button>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
             </div>
-            <p>直接查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>
-        `;
-        document.getElementById('downloadOptions').style.display = 'block';
-        document.getElementById('downloadButton').style.display = 'block';
+            <div class="progress-text" id="progressText">處理中：0%</div>
+        </div>
+        <div class="input-group" style="display: none;" id="downloadOptions">
+            <label for="imageFormat">選擇輸出格式:</label>
+            <select id="imageFormat">
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+            </select>
+        </div>
+        <button onclick="downloadDeblurredImage()" style="display: none;" id="downloadButton">下載修復後的圖片</button>
+        <div class="result" id="result"></div>
+        <p><a href="index.html">返回工具主頁</a></p>
+    </div>
 
-        // 添加點擊放大事件
-        const beforeImg = resultDiv.querySelector('.comparison-image:first-child img');
-        const afterImg = resultDiv.querySelector('.comparison-image:last-child img');
-        if (beforeImg && afterImg) {
-            beforeImg.addEventListener('click', showModal);
-            afterImg.addEventListener('click', showModal);
+    <!-- 放大模態窗口 -->
+    <div class="modal" id="modal">
+        <span class="close" onclick="closeModal()">×</span>
+        <div class="modal-content" id="modalContent"></div>
+    </div>
+
+    <!-- 引入 OpenCV.js 從 CDN，嘗試多個鏈接 -->
+    <script src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.min.js" async onload="onOpenCVReady()" onerror="tryNextOpenCV()"></script>
+    <script>
+        let cv = null;
+        let openCVTried = 0;
+        const openCVURLs = [
+            "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.min.js",
+            "https://cdn.jsdelivr.net/npm/opencv.js-webassembly@4.5.0/dist/opencv.min.js",
+            "https://unpkg.com/@techstark/opencv-js@4.10.0-release.1/dist/opencv.min.js"
+        ];
+
+        function onOpenCVReady() {
+            cv = window.cv; // 確保 OpenCV 加載完成
+            console.log("OpenCV.js 加載成功，使用 URL：", openCVURLs[openCVTried]);
+            enableDeblurButton(); // OpenCV 加載完成後啟用按鈕
         }
-        hideProgress(); // 隱藏進度條
-    } catch (error) {
-        alert("圖片修復失敗，請檢查瀏覽器或檔案！錯誤：", error.message);
-        hideProgress(); // 隱藏進度條
-    }
-}
 
-// 綁定按鈕點擊事件
-document.getElementById('deblurButton').addEventListener('click', function() {
-    showProgress(); // 顯示進度條
-    deblurImage(); // 執行圖片修復
-});
+        function handleOpenCVError() {
+            alert("OpenCV.js 加載失敗，請檢查網絡或聯繫管理員！");
+            console.error("OpenCV.js 加載錯誤，使用 URL：", openCVURLs[openCVTried]);
+            disableDeblurButton(); // OpenCV 加載失敗時禁用按鈕
+        }
 
-function downloadDeblurredImage() {
-    if (!canvas) {
-        alert("請先修復圖片！");
-        return;
-    }
+        function tryNextOpenCV() {
+            openCVTried++;
+            if (openCVTried < openCVURLs.length) {
+                const script = document.createElement('script');
+                script.src = openCVURLs[openCVTried];
+                script.async = true;
+                script.onload = onOpenCVReady;
+                script.onerror = handleOpenCVError;
+                document.head.appendChild(script);
+                console.log("嘗試下一個 OpenCV.js URL：", openCVURLs[openCVTried]);
+            } else {
+                handleOpenCVError();
+            }
+        }
 
-    const format = document.getElementById('imageFormat').value;
-    let dataURL;
-    if (format === 'png') {
-        dataURL = canvas.toDataURL('image/png');
-    } else if (format === 'jpg') {
-        dataURL = canvas.toDataURL('image/jpeg', 0.95);
-    }
+        let img = null;
+        let canvas = null;
+        let originalImgSrc = '';
+        let deblurredImgSrc = '';
 
-    const link = document.createElement('a');
-    link.href = dataURL;
-    link.download = `deblurred_image.${format}`;
-    link.click();
-}
+        function enableDeblurButton() {
+            const deblurButton = document.getElementById('deblurButton');
+            deblurButton.disabled = false;
+            deblurButton.textContent = '修復圖片';
+            deblurButton.style.backgroundColor = '#4CAF50';
+            deblurButton.style.color = 'white';
+            deblurButton.style.cursor = 'pointer';
+            console.log("修復按鈕已啟用");
+        }
 
-function showModal(e) {
-    const modal = document.getElementById('modal');
-    const modalContent = document.getElementById('modalContent');
-    const imgSrc = e.target.src;
-    modalContent.innerHTML = `<img src="${imgSrc}" alt="Zoomed Image">`;
-    modal.style.display = 'flex';
-}
+        function disableDeblurButton() {
+            const deblurButton = document.getElementById('deblurButton');
+            deblurButton.disabled = true;
+            deblurButton.textContent = '正在加載 OpenCV';
+            deblurButton.style.backgroundColor = '#ccc';
+            deblurButton.style.color = '#666';
+            deblurButton.style.cursor = 'not-allowed';
+            console.log("修復按鈕已禁用");
+        }
 
-function closeModal() {
-    const modal = document.getElementById('modal');
-    modal.style.display = 'none';
-}
-</script>
+        function loadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) {
+                alert("請選擇一個圖片檔案！");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.src = e.target.result;
+                img.onload = function() {
+                    if (img.width === 0 || img.height === 0) {
+                        alert("圖片尺寸無效，請檢查檔案！");
+                        return;
+                    }
+                    if (img.width > 2000 || img.height > 2000) {
+                        alert("圖片尺寸過大，請選擇較小的圖片（建議 2000x2000 像素以下）！");
+                        return;
+                    }
+                    document.getElementById('result').innerHTML = "圖片已加載，請點擊「修復圖片」按鈕修復...";
+                    originalImgSrc = img.src;
+                    deblurredImgSrc = '';
+                    if (cv) {
+                        enableDeblurButton(); // 如果 OpenCV 已加載，啟用按鈕
+                    }
+                };
+                img.onerror = function() {
+                    alert("圖片加載失敗，請檢查檔案格式或網絡！");
+                    hideProgress(); // 隱藏進度條
+                };
+            };
+            reader.onerror = function() {
+                alert("檔案讀取失敗，請檢查檔案或網絡！");
+                hideProgress(); // 隱藏進度條
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showProgress() {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'block';
+            updateProgress(0);
+        }
+
+        function hideProgress() {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'none';
+            updateProgress(0);
+        }
+
+        function updateProgress(percentage) {
+            const progress = document.getElementById('progress');
+            const progressText = document.getElementById('progressText');
+            progress.style.width = `${percentage}%`;
+            progressText.textContent = `處理中：${percentage}%`;
+        }
+
+        function deblurImage() {
+            if (!img || !cv) {
+                alert("請等待 OpenCV.js 加載完成或檢查網絡連線！");
+                hideProgress();
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                alert("瀏覽器不支持 canvas，請使用現代瀏覽器（如 Chrome 或 Safari）！");
+                hideProgress();
+                return;
+            }
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            try {
+                ctx.drawImage(img, 0, 0);
+                console.log("圖片繪製到 canvas 成功，尺寸：", canvas.width, "x", canvas.height);
+
+                // 將圖片數據轉換為 OpenCV Mat
+                const src = cv.imread(canvas);
+                const dst = new cv.Mat();
+                const kernel = cv.Mat.ones(3, 3, cv.CV_32F); // 3x3 模糊核（可調整）
+                kernel.convertTo(kernel, cv.CV_32F, 1/9, 0); // 均值模糊核
+
+                // 模擬進度（基於圖片行數）
+                let progress = 0;
+                const totalRows = src.rows;
+                let processedRows = 0;
+
+                // Wiener Deconvolution（使用 OpenCV）
+                cv.wienerDeconvolution(src, dst, kernel, 0.01); // 噪聲水平設置為 0.01（可調整）
+                // 或者 Lucy-Richardson Deconvolution
+                // cv.deconvolution(src, dst, kernel, 15); // 迭代次數設為 15（可調整）
+
+                // 更新進度（模擬處理）
+                for (let i = 0; i < src.rows; i++) {
+                    processedRows++;
+                    progress = Math.floor((processedRows / totalRows) * 100);
+                    updateProgress(progress);
+                }
+
+                // 將結果繪製回 canvas
+                cv.imshow(canvas, dst);
+                deblurredImgSrc = canvas.toDataURL();
+                console.log("圖片修復完成，deblurredImgSrc 長度：", deblurredImgSrc.length);
+
+                // 顯示左右分屏對比
+                resultDiv.innerHTML = `
+                    <div class="comparison-container">
+                        <div class="comparison-image">
+                            <img src="${originalImgSrc}" alt="Before">
+                            <div class="label">Before</div>
+                        </div>
+                        <div class="comparison-image">
+                            <img src="${deblurredImgSrc}" alt="After">
+                            <div class="label">After</div>
+                        </div>
+                    </div>
+                    <p>直接查看修復前後對比，選擇輸出格式並下載修復後的圖片。</p>
+                `;
+                document.getElementById('downloadOptions').style.display = 'block';
+                document.getElementById('downloadButton').style.display = 'block';
+
+                // 添加點擊放大事件
+                const beforeImg = resultDiv.querySelector('.comparison-image:first-child img');
+                const afterImg = resultDiv.querySelector('.comparison-image:last-child img');
+                if (beforeImg && afterImg) {
+                    beforeImg.addEventListener('click', showModal);
+                    afterImg.addEventListener('click', showModal);
+                }
+                hideProgress(); // 隱藏進度條
+            } catch (error) {
+                alert("圖片修復失敗，請檢查瀏覽器、檔案或 OpenCV.js！錯誤：" + error.message);
+                console.error("修復錯誤：", error);
+                hideProgress(); // 隱藏進度條
+            } finally {
+                // 清理 OpenCV 記憶體（即使有錯誤也執行）
+                if (src && dst && kernel) {
+                    src.delete();
+                    dst.delete();
+                    kernel.delete();
+                }
+            }
+        }
+
+        // 綁定按鈕點擊事件
+        document.getElementById('deblurButton').addEventListener('click', function() {
+            showProgress(); // 顯示進度條
+            deblurImage(); // 執行圖片修復
+        });
+
+        function downloadDeblurredImage() {
+            if (!canvas) {
+                alert("請先修復圖片！");
+                return;
+            }
+
+            const format = document.getElementById('imageFormat').value;
+            let dataURL;
+            if (format === 'png') {
+                dataURL = canvas.toDataURL('image/png');
+            } else if (format === 'jpg') {
+                dataURL = canvas.toDataURL('image/jpeg', 0.95);
+            }
+
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = `deblurred_image.${format}`;
+            link.click();
+        }
+
+        function showModal(e) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modalContent');
+            const imgSrc = e.target.src;
+            modalContent.innerHTML = `<img src="${imgSrc}" alt="Zoomed Image">`;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
