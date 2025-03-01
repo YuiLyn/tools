@@ -118,7 +118,8 @@
     </div>
 
     <!-- 引入 OpenCV.js -->
-    <script src="opencv.js" async onload="onOpenCVReady()" onerror="handleOpenCVError()"></script>
+   <!-- 引入 OpenCV.js 從 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/opencv.js" async onload="onOpenCVReady()" onerror="handleOpenCVError()"></script>
     <script>
         function onOpenCVReady() {
             cv = window.cv; // 確保 OpenCV 加載完成
