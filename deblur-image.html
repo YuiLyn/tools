@@ -283,6 +283,35 @@
             progressText.textContent = `處理中：${percentage}%`;
         }
 
+        function calculateAverageLuminance(imageData) {
+            const data = imageData.data;
+            let totalLuminance = 0;
+            let count = 0;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const luminance = 0.299 * r + 0.587 * g + 0.114 * b; // 人眼感知亮度
+                totalLuminance += luminance;
+                count++;
+            }
+
+            return totalLuminance / count;
+        }
+
+        function adjustBrightness(imageData, targetLuminance) {
+            const data = imageData.data;
+            const originalLuminance = calculateAverageLuminance(imageData);
+            const scale = targetLuminance / originalLuminance;
+
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = Math.min(255, Math.max(0, data[i] * scale)); // R
+                data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * scale)); // G
+                data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * scale)); // B
+            }
+        }
+
         function deblurImage() {
             if (!img) {
                 alert("請先上傳圖片！");
@@ -312,23 +341,26 @@
                     const denoised = new cv.Mat();
                     const dst = new cv.Mat();
                     const kernel = cv.Mat.ones(3, 3, cv.CV_32F);
-                    kernel.convertTo(kernel, cv.CV_32F, 1/9, 0); // 均值模糊核，降低強度
+                    kernel.convertTo(kernel, cv.CV_32F, 1/12, 0); // 進一步降低濾波強度，保持亮度
 
-                    // 降噪：高斯模糊
+                    // 降噪：高斯模糊，適度平滑
                     cv.GaussianBlur(src, denoised, new cv.Size(5, 5), 1.5);
 
-                    // 去模糊：使用濾波模擬溫和的 Wiener
+                    // 去模糊：使用溫和的濾波
                     cv.filter2D(denoised, dst, -1, kernel, new cv.Point(-1, -1), 0, cv.BORDER_DEFAULT);
 
-                    // 模擬進度（基於圖片行數）
-                    let progress = 0;
-                    const totalRows = src.rows;
-                    for (let i = 0; i < src.rows; i++) {
-                        progress = Math.floor((i / totalRows) * 100);
-                        updateProgress(progress);
-                    }
+                    // 計算原始圖片的平均亮度
+                    const originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const originalLuminance = calculateAverageLuminance(originalImageData);
 
+                    // 應用修復結果
                     cv.imshow(canvas, dst);
+
+                    // 根據原始亮度調整修復後圖片的亮度
+                    const deblurredImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    adjustBrightness(deblurredImageData, originalLuminance);
+
+                    ctx.putImageData(deblurredImageData, 0, 0);
                     deblurredImgSrc = canvas.toDataURL();
                     console.log("OpenCV 修復完成，deblurredImgSrc 長度：", deblurredImgSrc.length);
 
@@ -341,7 +373,7 @@
                     // 後備：使用 Canvas 實現簡化銳化
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const data = imageData.data;
-                    const sharpenMatrix = [-0.5, -0.5, -0.5, -0.5, 5, -0.5, -0.5, -0.5, -0.5]; // 降低強度
+                    const sharpenMatrix = [-0.25, -0.25, -0.25, -0.25, 2, -0.25, -0.25, -0.25, -0.25]; // 極為溫和的銳化
                     const width = canvas.width;
                     const height = canvas.height;
 
@@ -358,12 +390,18 @@
                                     }
                                 }
                                 const currentIndex = (y * width + x) * 4 + c;
-                                data[currentIndex] = Math.min(255, Math.max(0, sum + data[currentIndex] * 0.5)); // 平衡原始數據
+                                // 保留原始亮度，僅輕微調整
+                                data[currentIndex] = Math.min(255, Math.max(0, sum + data[currentIndex] * 1.0));
                             }
                         }
                         progress = Math.floor(((y - 1) / (height - 2)) * 100);
                         updateProgress(progress);
                     }
+
+                    // 計算原始圖片的平均亮度
+                    const originalLuminance = calculateAverageLuminance(imageData);
+                    adjustBrightness(imageData, originalLuminance);
+
                     ctx.putImageData(imageData, 0, 0);
                     deblurredImgSrc = canvas.toDataURL();
                     console.log("Canvas 修復完成，deblurredImgSrc 長度：", deblurredImgSrc.length);
@@ -393,7 +431,10 @@
             }
         }
 
-        document.getElementById('deblurButton').addEventListener('click', deblurImage);
+        document.getElementById('deblurButton').addEventListener('click', function() {
+            showProgress(); // 顯示進度條
+            deblurImage(); // 執行圖片修復
+        });
 
         function downloadDeblurredImage() {
             if (!canvas || !deblurredImgSrc) {
