@@ -62,6 +62,9 @@ button:hover {
     list-style: none;
     padding: 0;
     margin: 20px 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 桌面模式：兩列 */
+    gap: 10px;
 }
 
 .tool-list li {
@@ -77,4 +80,19 @@ button:hover {
 
 .tool-list a:hover {
     color: #45a049;
+
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+        max-width: 100%;
+    }
+
+    .tool-list {
+        grid-template-columns: 1fr; /* 手機模式：單列 */
+    }
+
+    .tool-list a {
+        padding: 8px;
+        font-size: 14px;
+    }
 }
