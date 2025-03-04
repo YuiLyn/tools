@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR 名片生成器</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            color: #1e90ff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #1e90ff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #4169e1;
+        }
+        #qrCode {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: linear-gradient(45deg, #e6f3ff, #fff);
+            border-radius: 8px;
+        }
+        #downloadBtn {
+            background-color: #32cd32;
+            margin-top: 10px;
+        }
+        #downloadBtn:hover {
+            background-color: #2e8b57;
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            button {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QR 名片生成器</h1>
+        <div class="form-group">
+            <label for="name">姓名：</label>
+            <input type="text" id="name" placeholder="輸入您的姓名">
+        </div>
+        <div class="form-group">
+            <label for="phone">電話號碼：</label>
+            <input type="tel" id="phone" placeholder="輸入電話號碼">
+        </div>
+        <div class="form-group">
+            <label for="email">電子郵件：</label>
+            <input type="email" id="email" placeholder="輸入電子郵件">
+        </div>
+        <div class="form-group">
+            <label for="company">公司（可選）：</label>
+            <input type="text" id="company" placeholder="輸入公司名稱">
+        </div>
+        <button onclick="generateQR()">生成 QR 名片</button>
+        <div id="qrCode"></div>
+        <button id="downloadBtn" onclick="downloadQR()" style="display: none;">下載 QR 碼</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        let qrCodeInstance = null;
+
+        function generateQR() {
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const email = document.getElementById('email').value;
+            const company = document.getElementById('company').value || '';
+
+            if (!name || !phone || !email) {
+                alert('請填寫必填欄位（姓名、電話、電子郵件）！');
+                return;
+            }
+
+            // 創建 vCard 格式的內容
+            const vCard = `BEGIN:VCARD\nVERSION:3.0\nN:${name}\nFN:${name}\nTEL:${phone}\nEMAIL:${email}\nORG:${company}\nEND:VCARD`;
+
+            const qrCodeDiv = document.getElementById('qrCode');
+            qrCodeDiv.innerHTML = ''; // 清空舊的 QR 碼
+
+            qrCodeInstance = new QRCode(qrCodeDiv, {
+                text: vCard,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // 顯示下載按鈕
+            document.getElementById('downloadBtn').style.display = 'block';
+        }
+
+        function downloadQR() {
+            if (qrCodeInstance) {
+                const qrImg = document.querySelector('#qrCode img');
+                if (qrImg) {
+                    const link = document.createElement('a');
+                    link.href = qrImg.src;
+                    link.download = 'qr-business-card.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
