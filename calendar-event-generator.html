@@ -21,7 +21,6 @@
             <label>時間：</label>
             <select id="startHour">
                 <option value="">開始小時</option>
-                <!-- 從 0 到 23 小時 -->
                 <script>
                     for (let i = 0; i < 24; i++) {
                         document.write(`<option value="${i}">${i}:00</option>`);
@@ -58,85 +57,10 @@
         </div>
         <button onclick="generateCalendar()">生成日曆事件</button>
         <button id="downloadBtn" onclick="downloadICS()">下載 .ics 文件</button>
+        <div id="qrCode"></div> <!-- 添加 QR 碼顯示區域 -->
     </div>
 
-    <script>
-        let icsContent = '';
-
-        function generateCalendar() {
-            const eventName = document.getElementById('eventName').value.trim();
-            const eventDate = document.getElementById('eventDate').value;
-            const startHour = document.getElementById('startHour').value;
-            const startMinute = document.getElementById('startMinute').value;
-            const endHour = document.getElementById('endHour').value;
-            const endMinute = document.getElementById('endMinute').value;
-            const location = document.getElementById('location').value.trim();
-            const description = document.getElementById('description').value.trim();
-
-            if (!eventName || !eventDate || !startHour || !startMinute || !endHour || !endMinute) {
-                alert('請填寫必填欄位（事件名稱、日期、開始時間和結束時間）！');
-                return;
-            }
-
-            function generateQRForEvent(icsContent) {
-                const qrCodeDiv = document.createElement('div');
-                qrCodeDiv.id = 'eventQR';
-                document.getElementById('qrCode').appendChild(qrCodeDiv);
-
-                new QRCode(qrCodeDiv, {
-                    text: URL.createObjectURL(new Blob([icsContent], { type: 'text/calendar' })),
-                    width: 150,
-                    height: 150,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff'
-                });
-
-                // 添加下載 QR 碼的按鈕
-                const downloadQRBtn = document.createElement('button');
-                downloadQRBtn.textContent = '下載 QR 碼';
-                downloadQRBtn.style.backgroundColor = '#32cd32';
-                downloadQRBtn.style.color = 'white';
-                downloadQRBtn.style.marginTop = '10px';
-                downloadQRBtn.onclick = function() {
-                    const qrImg = qrCodeDiv.querySelector('img');
-                    if (qrImg) {
-                        const link = document.createElement('a');
-                        link.href = qrImg.src;
-                        link.download = 'calendar-event-qr.png';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    }
-                };
-                document.getElementById('qrCode').appendChild(downloadQRBtn);
-            }
-
-            generateQRForEvent(icsContent);
-
-            // 格式化日期和時間（UTC）
-            const date = new Date(eventDate);
-            const startTime = `${eventDate}T${startHour.padStart(2, '0')}:${startMinute.padStart(2, '0')}:00Z`;
-            const endTime = `${eventDate}T${endHour.padStart(2, '0')}:${endMinute.padStart(2, '0')}:00Z`;
-
-            // 生成 iCalendar (.ics) 格式
-            icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${eventName}\nDTSTART:${startTime}\nDTEND:${endTime}\n${location ? `LOCATION:${location}\n` : ''}${description ? `DESCRIPTION:${description}\n` : ''}END:VEVENT\nEND:VCALENDAR`;
-
-            document.getElementById('downloadBtn').style.display = 'block';
-        }
-
-        function downloadICS() {
-            if (icsContent) {
-                const blob = new Blob([icsContent], { type: 'text/calendar' });
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'event.ics';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }
-        }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
