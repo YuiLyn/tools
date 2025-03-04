@@ -1,82 +1,142 @@
-let icsContent = '';
-let exchangeRates = null;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日曆事件生成器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>日曆事件生成器</h1>
+        <div class="form-group">
+            <label for="eventName">事件名稱（必填）：</label>
+            <input type="text" id="eventName" placeholder="輸入事件名稱">
+        </div>
+        <div class="form-group">
+            <label for="eventDate">日期（YYYY-MM-DD）：</label>
+            <input type="date" id="eventDate">
+        </div>
+        <div class="form-group">
+            <label>時間：</label>
+            <select id="startHour">
+                <option value="">開始小時</option>
+                <!-- 從 0 到 23 小時 -->
+                <script>
+                    for (let i = 0; i < 24; i++) {
+                        document.write(`<option value="${i}">${i}:00</option>`);
+                    }
+                </script>
+            </select>
+            <select id="startMinute">
+                <option value="">開始分鐘</option>
+                <option value="00">00</option>
+                <option value="30">30</option>
+            </select>
+            至
+            <select id="endHour">
+                <option value="">結束小時</option>
+                <script>
+                    for (let i = 0; i < 24; i++) {
+                        document.write(`<option value="${i}">${i}:00</option>`);
+                    }
+                </script>
+            </select>
+            <select id="endMinute">
+                <option value="">結束分鐘</option>
+                <option value="00">00</option>
+                <option value="30">30</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="location">地點（可選）：</label>
+            <input type="text" id="location" placeholder="輸入地點">
+        </div>
+        <div class="form-group">
+            <label for="description">描述（可選）：</label>
+            <textarea id="description" placeholder="輸入事件描述"></textarea>
+        </div>
+        <button onclick="generateCalendar()">生成日曆事件</button>
+        <button id="downloadBtn" onclick="downloadICS()">下載 .ics 文件</button>
+    </div>
 
-async function loadExchangeRates() {
-    try {
-        const response = await fetch('exchange-rates.json');
-        const data = await response.json();
-        return data.rates;
-    } catch (error) {
-        console.error('無法加載匯率數據:', error);
-        return null;
-    }
-}
+    <script>
+        let icsContent = '';
 
-document.addEventListener('DOMContentLoaded', async () => {
-    exchangeRates = await loadExchangeRates();
-});
+        function generateCalendar() {
+            const eventName = document.getElementById('eventName').value.trim();
+            const eventDate = document.getElementById('eventDate').value;
+            const startHour = document.getElementById('startHour').value;
+            const startMinute = document.getElementById('startMinute').value;
+            const endHour = document.getElementById('endHour').value;
+            const endMinute = document.getElementById('endMinute').value;
+            const location = document.getElementById('location').value.trim();
+            const description = document.getElementById('description').value.trim();
 
-function generateCalendar() {
-    const eventName = document.getElementById('eventName').value.trim();
-    const eventDate = document.getElementById('eventDate').value;
-    const startHour = document.getElementById('startHour').value;
-    const startMinute = document.getElementById('startMinute').value;
-    const endHour = document.getElementById('endHour').value;
-    const endMinute = document.getElementById('endMinute').value;
-    const location = document.getElementById('location').value.trim();
-    const description = document.getElementById('description').value.trim();
+            if (!eventName || !eventDate || !startHour || !startMinute || !endHour || !endMinute) {
+                alert('請填寫必填欄位（事件名稱、日期、開始時間和結束時間）！');
+                return;
+            }
 
-    if (!eventName || !eventDate || !startHour || !startMinute || !endHour || !endMinute) {
-        alert('請填寫必填欄位（事件名稱、日期、開始時間和結束時間）！');
-        return;
-    }
+            function generateQRForEvent(icsContent) {
+                const qrCodeDiv = document.createElement('div');
+                qrCodeDiv.id = 'eventQR';
+                document.getElementById('qrCode').appendChild(qrCodeDiv);
 
-    // 格式化日期和時間（UTC）
-    const date = new Date(eventDate);
-    const startTime = `${eventDate}T${startHour.padStart(2, '0')}:${startMinute.padStart(2, '0')}:00Z`;
-    const endTime = `${eventDate}T${endHour.padStart(2, '0')}:${endMinute.padStart(2, '0')}:00Z`;
+                new QRCode(qrCodeDiv, {
+                    text: URL.createObjectURL(new Blob([icsContent], { type: 'text/calendar' })),
+                    width: 150,
+                    height: 150,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff'
+                });
 
-    // 生成 iCalendar (.ics) 格式
-    icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${eventName}\nDTSTART:${startTime}\nDTEND:${endTime}\n${location ? `LOCATION:${location}\n` : ''}${description ? `DESCRIPTION:${description}\n` : ''}END:VEVENT\nEND:VCALENDAR`;
+                // 添加下載 QR 碼的按鈕
+                const downloadQRBtn = document.createElement('button');
+                downloadQRBtn.textContent = '下載 QR 碼';
+                downloadQRBtn.style.backgroundColor = '#32cd32';
+                downloadQRBtn.style.color = 'white';
+                downloadQRBtn.style.marginTop = '10px';
+                downloadQRBtn.onclick = function() {
+                    const qrImg = qrCodeDiv.querySelector('img');
+                    if (qrImg) {
+                        const link = document.createElement('a');
+                        link.href = qrImg.src;
+                        link.download = 'calendar-event-qr.png';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                };
+                document.getElementById('qrCode').appendChild(downloadQRBtn);
+            }
 
-    document.getElementById('downloadBtn').style.display = 'block';
-}
+            generateQRForEvent(icsContent);
 
-function downloadICS() {
-    if (icsContent) {
-        const blob = new Blob([icsContent], { type: 'text/calendar' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'event.ics';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-    }
-}
+            // 格式化日期和時間（UTC）
+            const date = new Date(eventDate);
+            const startTime = `${eventDate}T${startHour.padStart(2, '0')}:${startMinute.padStart(2, '0')}:00Z`;
+            const endTime = `${eventDate}T${endHour.padStart(2, '0')}:${endMinute.padStart(2, '0')}:00Z`;
 
-function updateCurrencyForLocation(location) {
-    if (!exchangeRates || !location) return;
+            // 生成 iCalendar (.ics) 格式
+            icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${eventName}\nDTSTART:${startTime}\nDTEND:${endTime}\n${location ? `LOCATION:${location}\n` : ''}${description ? `DESCRIPTION:${description}\n` : ''}END:VEVENT\nEND:VCALENDAR`;
 
-    const currencyMap = {
-        '東京': 'JPY',
-        '倫敦': 'GBP',
-        '紐約': 'USD',
-        '巴黎': 'EUR',
-        '香港': 'HKD',
-        '上海': 'CNY'
-    };
+            document.getElementById('downloadBtn').style.display = 'block';
+        }
 
-    const currency = currencyMap[location] || 'TWD';
-    const twdRate = exchangeRates.TWD?.USD || 0.03036; // 假設 TWD 對 USD 的匯率
-    const targetRate = exchangeRates[currency]?.USD || 1.0;
-
-    if (twdRate && targetRate) {
-        const exchangeRate = (1 / twdRate) * targetRate; // 1 TWD 換算成目標貨幣
-        const resultDiv = document.createElement('div');
-        resultDiv.textContent = `1 TWD ≈ ${exchangeRate.toFixed(4)} ${currency}`;
-        resultDiv.style.color = '#666';
-        resultDiv.style.marginTop = '10px';
-        document.getElementById('location').parentNode.appendChild(resultDiv);
-    }
+        function downloadICS() {
+            if (icsContent) {
+                const blob = new Blob([icsContent], { type: 'text/calendar' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'event.ics';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            }
+        }
+    </script>
+</body>
+</html>
