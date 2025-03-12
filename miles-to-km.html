@@ -25,7 +25,7 @@
     <script src="script.js"></script>
     <script>
         function convert() {
-            const distance = parseFloat(document.getElementById('distance').value);
+            const distance = parseFloat(document.getElementById('distance').value); // 修正為 'distance'
             const unit = document.getElementById('unit').value;
 
             if (isNaN(distance) || distance <= 0) {
