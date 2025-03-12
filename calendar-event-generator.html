@@ -58,9 +58,14 @@
         <button onclick="generateCalendar()">生成日曆事件</button>
         <button id="downloadBtn" onclick="downloadICS()">下載 .ics 文件</button>
         <div id="qrCode"></div> <!-- 添加 QR 碼顯示區域 -->
+        <button class="back-button" onclick="goBack()">返回主頁</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js">
+        function goBack() {
+            window.location.href = 'index.html'; // 直接跳轉到 index.html
+        }
+    </script>
 </body>
 </html>
