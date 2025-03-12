@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Miles 到 Kilometers 轉換器</title>
-    <link rel="stylesheet" href="style.css"> <!-- 確保路徑正確 -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <h1>Miles 到 Kilometers 轉換器</h1>
         <div class="input-group">
-            <label for="miles">輸入公里數 (Miles):</label>
-            <input type="number" id="miles" step="any" placeholder="輸入公里數">
+            <label for="distance">輸入距離:</label>
+            <input type="number" id="distance" step="any" placeholder="例如：10">
+            <select id="unit">
+                <option value="miles">英里 (Miles)</option>
+                <option value="km">公里 (Kilometers)</option>
+            </select>
         </div>
         <button onclick="convert()">轉換</button>
         <div class="result" id="result"></div>
@@ -21,21 +25,21 @@
     <script src="script.js"></script>
     <script>
         function convert() {
-            const weight = parseFloat(document.getElementById('weight').value);
+            const distance = parseFloat(document.getElementById('distance').value);
             const unit = document.getElementById('unit').value;
 
-            if (isNaN(weight) || weight <= 0) {
-                document.getElementById('result').innerHTML = '請輸入有效的重量！';
+            if (isNaN(distance) || distance <= 0) {
+                document.getElementById('result').innerHTML = '請輸入有效的距離！';
                 return;
             }
 
             let result;
-            if (unit === 'kg') {
-                const pounds = weight * 2.20462; // 1 公斤 = 2.20462 磅
-                result = `${weight} 公斤 = ${pounds.toFixed(2)} 磅`;
+            if (unit === 'miles') {
+                const kilometers = distance * 1.60934; // 1 英里 = 1.60934 公里
+                result = `${distance} 英里 = ${kilometers.toFixed(2)} 公里`;
             } else {
-                const kilos = weight / 2.20462; // 1 磅 = 0.453592 公斤
-                result = `${weight} 磅 = ${kilos.toFixed(2)} 公斤`;
+                const miles = distance / 1.60934; // 1 公里 = 0.621371 英里
+                result = `${distance} 公里 = ${miles.toFixed(2)} 英里`;
             }
 
             document.getElementById('result').innerHTML = result;
