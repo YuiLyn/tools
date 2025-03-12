@@ -40,7 +40,7 @@
         <button onclick="convertCurrency()">轉換</button>
         <button onclick="updateExchangeRates()">更新匯率</button>
         <div class="result" id="result"></div>
-        <p><a href="index.html">返回工具主頁</a></p>
+        <button class="back-button" onclick="goBack()">返回主頁</button>
     </div>
     <script>
         let rates = {
@@ -74,7 +74,7 @@
                 const response = await fetch('exchange-rates.json');
                 const data = await response.json();
 
-                if (data.rates) {
+                if (data.rates && typeof data.rates === 'object') {
                     rates = data.rates;
                     resultDiv.innerHTML = "匯率已成功更新！最後更新日期：" + (data.lastUpdated || "未知");
                 } else {
