@@ -6,7 +6,6 @@
     <title>圖片轉鏈接工具</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* 拖放區域樣式 */
         #drop-area {
             border: 2px dashed #ccc;
             border-radius: 10px;
@@ -21,7 +20,6 @@
             border-color: #000;
             background-color: #f0f0f0;
         }
-        /* 平板適配 */
         @media (max-width: 768px) {
             #drop-area {
                 width: 250px;
@@ -99,24 +97,42 @@
                 return;
             }
 
-            // 10MB 限制
-            if (file.size > 10 * 1024 * 1024) { // 10MB = 10 * 1024 * 1024 bytes
+            if (file.size > 10 * 1024 * 1024) {
                 resultDiv.innerHTML = "圖片過大，請選擇小於 10MB 的圖片！";
                 copyButton.style.display = 'none';
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                generatedUrl = e.target.result; // 將圖片轉為 Data URL
-                resultDiv.innerHTML = `
-                    <p>圖片已轉換為鏈接！</p>
-                    <p><a href="${generatedUrl}" target="_blank">點擊查看圖片</a></p>
-                    <p>鏈接：<span id="urlText">${generatedUrl.substring(0, 50)}...</span></p>
-                `;
-                copyButton.style.display = 'block'; // 顯示複製按鈕
-            };
-            reader.readAsDataURL(file);
+            const formData = new FormData();
+            formData.append('image', file);
+
+            fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: {
+                    Authorization: '9864592e852c006' // 替換為你的 Client ID
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data.link) {
+                    generatedUrl = data.data.link;
+                    resultDiv.innerHTML = `
+                        <p>圖片已轉換為鏈接！</p>
+                        <p><img src="${generatedUrl}" alt="預覽圖片" style="max-width: 100%; height: auto;"></p>
+                        <p>鏈接：<a href="${generatedUrl}" target="_blank">${generatedUrl}</a></p>
+                    `;
+                    copyButton.style.display = 'block';
+                } else {
+                    resultDiv.innerHTML = "上傳失敗，請重試！錯誤: " + (data.data ? data.data.error : '未知');
+                    copyButton.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = "上傳出錯，請重試！";
+                console.error('Error:', error);
+                copyButton.style.display = 'none';
+            });
         }
 
         function copyUrl() {
