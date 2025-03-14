@@ -1,53 +1,56 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>圖片上傳生成鏈接</title>
+    <title>圖片轉鏈接工具</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        /* 拖放區域樣式 */
         #drop-area {
             border: 2px dashed #ccc;
             border-radius: 10px;
-            width: 80%;
-            height: 150px;
+            width: 300px;
+            height: 200px;
             text-align: center;
-            line-height: 150px;
+            line-height: 200px;
             margin: 20px auto;
             cursor: pointer;
         }
         #drop-area.hover {
             border-color: #000;
+            background-color: #f0f0f0;
         }
-        #file-input {
-            display: none;
-        }
-        #status {
-            margin-top: 20px;
-            font-size: 1.2em;
-            color: #333;
+        /* 平板適配 */
+        @media (max-width: 768px) {
+            #drop-area {
+                width: 250px;
+                height: 150px;
+                line-height: 150px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>圖片上傳生成鏈接</h1>
-        <div id="drop-area">
-            拖拽圖片到這裡或點擊上傳
+        <h1>圖片轉鏈接工具</h1>
+        <div class="input-group">
+            <div id="drop-area">
+                拖拽圖片到這裡或點擊上傳
+                <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="convertImageToUrl()">
+            </div>
         </div>
-        <input type="file" id="file-input" accept="image/*">
-        <div id="status"></div>
-        <button onclick="goBack()">返回主頁</button>
+        <div class="result" id="result"></div>
+        <button onclick="copyUrl()" style="display: none;" id="copyButton">複製鏈接</button>
+        <button class="back-button" onclick="goBack()">返回主頁</button>
     </div>
-
     <script>
-        const dropArea = document.getElementById('drop-area');
-        const fileInput = document.getElementById('file-input');
-        const statusText = document.getElementById('status');
+        let generatedUrl = '';
 
         // 防止默認行為
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
+            document.getElementById('drop-area').addEventListener(eventName, preventDefaults, false);
         });
 
         function preventDefaults(e) {
@@ -57,60 +60,77 @@
 
         // 高亮拖拽區域
         ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.add('hover'), false);
+            document.getElementById('drop-area').addEventListener(eventName, () => {
+                document.getElementById('drop-area').classList.add('hover');
+            }, false);
         });
 
         ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, () => dropArea.classList.remove('hover'), false);
+            document.getElementById('drop-area').addEventListener(eventName, () => {
+                document.getElementById('drop-area').classList.remove('hover');
+            }, false);
         });
 
-        // 處理文件拖拽
-        dropArea.addEventListener('drop', handleDrop, false);
-        fileInput.addEventListener('change', handleFiles, false);
+        // 處理文件拖放
+        document.getElementById('drop-area').addEventListener('drop', handleDrop, false);
 
         function handleDrop(e) {
             const dt = e.dataTransfer;
             const files = dt.files;
-            handleFiles(files);
-        }
-
-        function handleFiles(files) {
-            const file = files[0];
-            if (file && file.type.startsWith('image/')) {
-                uploadFile(file);
-            } else {
-                statusText.textContent = '請上傳有效的圖片文件';
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                convertImageToUrl();
             }
         }
 
-        function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('file', file);
+        // 點擊觸發文件選擇
+        document.getElementById('drop-area').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
 
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.url) {
-                    statusText.innerHTML = `圖片鏈接: <a href="${data.url}" target="_blank">${data.url}</a>`;
-                } else {
-                    statusText.textContent = '上傳失敗';
-                }
-            })
-            .catch(error => {
-                statusText.textContent = '上傳出錯';
-                console.error('Error:', error);
+        function convertImageToUrl() {
+            const file = document.getElementById('fileInput').files[0];
+            const resultDiv = document.getElementById('result');
+            const copyButton = document.getElementById('copyButton');
+
+            if (!file) {
+                resultDiv.innerHTML = "請選擇或拖動一個圖片檔案！";
+                copyButton.style.display = 'none';
+                return;
+            }
+
+            // 10MB 限制
+            if (file.size > 10 * 1024 * 1024) { // 10MB = 10 * 1024 * 1024 bytes
+                resultDiv.innerHTML = "圖片過大，請選擇小於 10MB 的圖片！";
+                copyButton.style.display = 'none';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                generatedUrl = e.target.result; // 將圖片轉為 Data URL
+                resultDiv.innerHTML = `
+                    <p>圖片已轉換為鏈接！</p>
+                    <p><a href="${generatedUrl}" target="_blank">點擊查看圖片</a></p>
+                    <p>鏈接：<span id="urlText">${generatedUrl.substring(0, 50)}...</span></p>
+                `;
+                copyButton.style.display = 'block'; // 顯示複製按鈕
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function copyUrl() {
+            const urlText = generatedUrl;
+            navigator.clipboard.writeText(urlText).then(() => {
+                alert("鏈接已複製到剪貼簿！");
+            }).catch(err => {
+                console.error('複製失敗:', err);
+                alert("複製失敗，請手動複製鏈接！");
             });
         }
 
-        // 點擊區域觸發文件選擇
-        dropArea.addEventListener('click', () => fileInput.click());
-
-        // 返回主頁
         function goBack() {
-            window.location.href = 'index.html'; // 直接跳轉到 index.html
+            window.location.href = 'index.html'; // 跳轉到主頁
         }
     </script>
 </body>
