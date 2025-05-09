@@ -1,0 +1,14 @@
+{
+    "Mercari": [
+        { "name": "PS5 遊戲機", "price": 30000, "stock": true },
+        { "name": "Nintendo Switch OLED", "price": 25000, "stock": false }
+    ],
+    "駿河屋": [
+        { "name": "PS5 遊戲機", "price": 28000, "stock": true },
+        { "name": "Nintendo Switch OLED", "price": 24000, "stock": true }
+    ],
+    "Mandarake": [
+        { "name": "PS5 遊戲機", "price": 32000, "stock": true },
+        { "name": "Nintendo Switch OLED", "price": 26000, "stock": true }
+    ]
+}
